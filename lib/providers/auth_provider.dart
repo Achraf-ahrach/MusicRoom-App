@@ -200,6 +200,101 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // ── Forgot Password ───────────────────────────────────────────────────
+  Future<bool> forgotPassword({required String email}) async {
+    _errorMessage = null;
+    _isBusy = true;
+    notifyListeners();
+
+    try {
+      await _authService.forgotPassword(email: email);
+      _isBusy = false;
+      notifyListeners();
+      return true;
+    } on AuthException catch (e) {
+      _errorMessage = e.message;
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Connection error. Please try again.';
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ── Verify Reset OTP ──────────────────────────────────────────────────
+  Future<bool> verifyResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    _errorMessage = null;
+    _isBusy = true;
+    notifyListeners();
+
+    try {
+      await _authService.verifyResetOtp(email: email, otp: otp);
+      _isBusy = false;
+      notifyListeners();
+      return true;
+    } on AuthException catch (e) {
+      _errorMessage = e.message;
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Connection error. Please try again.';
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ── Reset Password ────────────────────────────────────────────────────
+  Future<bool> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    _errorMessage = null;
+    _isBusy = true;
+    notifyListeners();
+
+    try {
+      final response = await _authService.resetPassword(
+        email: email,
+        otp: otp,
+        newPassword: newPassword,
+      );
+
+      // Extract user and tokens
+      final userJson = response['user'] as Map<String, dynamic>;
+      userJson['accessToken'] = response['accessToken'];
+      userJson['refreshToken'] = response['refreshToken'];
+      _currentUser = UserModel.fromJson(userJson);
+
+      // Persist session
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, _currentUser!.encode());
+
+      _authStatus = AuthStatus.authenticated;
+      _isBusy = false;
+      notifyListeners();
+      return true;
+    } on AuthException catch (e) {
+      _errorMessage = e.message;
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Connection error. Please try again.';
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ── Logout ────────────────────────────────────────────────────────────
   /// Clears persisted session and resets state.
   Future<void> logout() async {

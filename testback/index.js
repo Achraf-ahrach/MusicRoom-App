@@ -143,6 +143,77 @@ app.post('/verify-otp', (req, res) => {
     });
 });
 
+// POST /forgot-password
+app.post('/forgot-password', (req, res) => {
+    const { email } = req.body;
+    const users = readUsers();
+
+    const userIndex = users.findIndex(u => u.email === email);
+    if (userIndex === -1) {
+        // To prevent user enumeration, we shouldn't fail explicitly, but for testing it's fine.
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    users[userIndex].token = token;
+    writeUsers(users);
+
+    console.log('====================================');
+    console.log(`[FORGOT PASSWORD] OTP generated for ${email}: ${token}`);
+    console.log('====================================');
+
+    res.json({ message: 'OTP sent to email' });
+});
+
+// POST /verify-reset-otp
+app.post('/verify-reset-otp', (req, res) => {
+    const { email, token } = req.body;
+    const users = readUsers();
+
+    const userIndex = users.findIndex(u => u.email === email);
+    if (userIndex === -1) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (users[userIndex].token !== token) {
+        return res.status(400).json({ error: 'Invalid token' });
+    }
+
+    res.json({ message: 'Token verified successfully' });
+});
+
+// POST /reset-password
+app.post('/reset-password', (req, res) => {
+    const { email, token, newPassword } = req.body;
+    const users = readUsers();
+
+    const userIndex = users.findIndex(u => u.email === email);
+    if (userIndex === -1) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (users[userIndex].token !== token) {
+        return res.status(400).json({ error: 'Invalid token' });
+    }
+
+    const accessToken = crypto.randomBytes(32).toString('hex');
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+
+    // Update password, clear token, set tokens
+    users[userIndex].password = newPassword;
+    users[userIndex].token = null;
+    users[userIndex].accessToken = accessToken;
+    users[userIndex].refreshToken = refreshToken;
+    writeUsers(users);
+
+    res.json({ 
+        message: 'Password reset successfully',
+        user: { id: users[userIndex].id, fullName: users[userIndex].fullName, email: users[userIndex].email },
+        accessToken,
+        refreshToken
+    });
+});
+
 // POST /auth/google (Mock for Google OAuth)
 app.post('/auth/google', (req, res) => {
     const { email, fullName, googleId } = req.body;

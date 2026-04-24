@@ -97,6 +97,72 @@ class AuthService {
       throw AuthException(body['error'] as String? ?? 'Failed to resend OTP');
     }
   }
+
+  /// POST /forgot-password
+  /// Requests an OTP for password reset.
+  /// Throws [AuthException] on failure.
+  Future<void> forgotPassword({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      throw AuthException(body['error'] as String? ?? 'Failed to request password reset');
+    }
+  }
+
+  /// POST /verify-reset-otp
+  /// Verifies the OTP for password reset.
+  /// Throws [AuthException] on failure.
+  Future<void> verifyResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/verify-reset-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'token': otp}),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      throw AuthException(body['error'] as String? ?? 'Verification failed');
+    }
+  }
+
+  /// POST /reset-password
+  /// Resets the user's password and returns tokens.
+  /// Throws [AuthException] on failure.
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'token': otp,
+        'newPassword': newPassword,
+      }),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      throw AuthException(body['error'] as String? ?? 'Failed to reset password');
+    }
+
+    return body;
+  }
 }
 
 /// Custom exception for auth-related errors.

@@ -4,47 +4,36 @@ import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../router/app_router_delegate.dart';
 
-/// Login screen — dark Deezer-style form with email/password fields,
-/// inline error messages, and a purple submit button.
-class LoginScreen extends StatefulWidget {
+class ForgotPasswordScreen extends StatefulWidget {
   final AppRouterDelegate routerDelegate;
 
-  const LoginScreen({super.key, required this.routerDelegate});
+  const ForgotPasswordScreen({super.key, required this.routerDelegate});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  /// Validates and submits the login form.
-  Future<void> _handleLogin() async {
+  Future<void> _handleSendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     authProvider.clearError();
 
-    try {
-      final success = await authProvider.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      // Navigation to home happens automatically on success
-    } on UserNotVerifiedException {
-      if (mounted) {
-        widget.routerDelegate.navigateToOtp(_emailController.text.trim());
-      }
+    final email = _emailController.text.trim();
+    final success = await authProvider.forgotPassword(email: email);
+    
+    if (success && mounted) {
+      widget.routerDelegate.navigateToResetOtp(email);
     }
   }
 
@@ -52,16 +41,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      // ── AppBar with back arrow ──────────────────────────────────────────
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
-          onPressed: () => widget.routerDelegate.navigateToAuth(),
+          onPressed: () => widget.routerDelegate.navigateToLogin(),
         ),
         title: const Text(
-          'Log in',
+          'Forgot Password',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -81,10 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 20),
-
-                    // ── Header ────────────────────────────────────────────
                     const Text(
-                      'Welcome back',
+                      'Reset your password',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 28,
@@ -93,15 +79,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Log in to continue listening',
+                      'Enter your email address and we will send you a verification code.',
                       style: TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 15,
+                        height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 40),
-
-                    // ── Email field ───────────────────────────────────────
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -124,48 +109,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-
-                    // ── Password field ────────────────────────────────────
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      decoration: InputDecoration(
-                        hintText: 'Password',
-                        prefixIcon: const Icon(
-                          Icons.lock_outline_rounded,
-                          color: AppTheme.textMuted,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: AppTheme.textMuted,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ── Inline error message ─────────────────────────────
                     if (auth.errorMessage != null)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
                         ),
+                        margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: AppTheme.error.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
@@ -194,37 +144,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ),
-
                     const SizedBox(height: 16),
-
-                    // ── Forgot Password button ────────────────────────────
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => widget.routerDelegate.navigateToForgotPassword(),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.accent,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(50, 30),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          'Forgot password?',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // ── Login button ──────────────────────────────────────
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: auth.isBusy ? null : _handleLogin,
+                        onPressed: auth.isBusy ? null : _handleSendOtp,
                         child: auth.isBusy
                             ? const SizedBox(
                                 width: 22,
@@ -236,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               )
-                            : const Text('Log in'),
+                            : const Text('Send Code'),
                       ),
                     ),
                   ],
