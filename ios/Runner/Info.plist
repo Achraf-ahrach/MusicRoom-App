@@ -66,5 +66,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Google Sign-In: URL scheme for OAuth redirect back to the app -->
+	<!-- Replace the string below with your REVERSED iOS Client ID from Google Cloud Console -->
+	<!-- Format: com.googleusercontent.apps.YOUR_IOS_CLIENT_ID -->
+	<!-- Example: if iOS Client ID = 123456-abc.apps.googleusercontent.com -->
+	<!--          then reversed =    com.googleusercontent.apps.123456-abc -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>PASTE_YOUR_REVERSED_IOS_CLIENT_ID_HERE</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

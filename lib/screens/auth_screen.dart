@@ -1,7 +1,9 @@
 import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
+import '../providers/auth_provider.dart';
 import '../router/app_router_delegate.dart';
 
 /// Auth landing screen — Deezer-accurate UI with modern typography.
@@ -175,7 +177,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     height: 56,
                     child: OutlinedButton(
                       onPressed: () {
-                        // TODO: trigger Google sign-in
+                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        auth.signInWithGoogle();
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,

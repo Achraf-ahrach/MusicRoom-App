@@ -225,27 +225,39 @@ app.post('/auth/google', (req, res) => {
     let user = users.find(u => u.email === email);
 
     if (!user) {
-        // Auto-create and verify
+        // Auto-create and verify — Google users skip the OTP flow
         user = {
             id: googleId || Date.now().toString(),
             fullName: fullName || 'Google User',
             email,
-            password: null, // OAuth users don't need passwords
+            password: null,
             token: null,
             isVerified: true
         };
         users.push(user);
-        writeUsers(users);
     } else if (!user.isVerified) {
-        // Always ensure Google accounts get verified
         user.isVerified = true;
         user.token = null;
-        writeUsers(users);
     }
 
+    // Generate session tokens (same as login/verify endpoints)
+    const accessToken = crypto.randomBytes(32).toString('hex');
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+
+    const userIndex = users.findIndex(u => u.email === email);
+    users[userIndex].accessToken = accessToken;
+    users[userIndex].refreshToken = refreshToken;
+    writeUsers(users);
+
+    console.log('====================================');
+    console.log(`[GOOGLE AUTH] Login successful for ${email}`);
+    console.log('====================================');
+
     res.json({ 
-        message: 'Google login successful', 
-        user: { id: user.id, fullName: user.fullName, email: user.email } 
+        message: 'Google login successful',
+        user: { id: user.id, fullName: user.fullName, email: user.email },
+        accessToken,
+        refreshToken
     });
 });
 

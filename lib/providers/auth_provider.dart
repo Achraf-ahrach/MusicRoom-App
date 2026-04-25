@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -289,6 +291,62 @@ class AuthProvider with ChangeNotifier {
       return false;
     } catch (e) {
       _errorMessage = 'Connection error. Please try again.';
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ── Google Sign-In ────────────────────────────────────────────────────
+  /// Launches the Google account picker, then calls POST /auth/google.
+  /// On success, persists session and navigates to HomeScreen.
+  Future<bool> signInWithGoogle() async {
+    _errorMessage = null;
+    _isBusy = true;
+    notifyListeners();
+
+    try {
+      final googleSignIn = GoogleSignIn(
+        // iOS: uses clientId (no GoogleService-Info.plist without Firebase)
+        clientId: dotenv.env['GOOGLE_IOS_CLIENT_ID'],
+        // Android: uses serverClientId (web client ID) to obtain an idToken
+        serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
+      );
+
+      final googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // User cancelled the picker
+        _isBusy = false;
+        notifyListeners();
+        return false;
+      }
+
+      final response = await _authService.googleSignIn(
+        email: googleUser.email,
+        fullName: googleUser.displayName ?? 'Google User',
+        googleId: googleUser.id,
+      );
+
+      final userJson = response['user'] as Map<String, dynamic>;
+      userJson['accessToken'] = response['accessToken'] as String? ?? '';
+      userJson['refreshToken'] = response['refreshToken'] as String? ?? '';
+      _currentUser = UserModel.fromJson(userJson);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, _currentUser!.encode());
+
+      _authStatus = AuthStatus.authenticated;
+      _isBusy = false;
+      notifyListeners();
+      return true;
+    } on AuthException catch (e) {
+      _errorMessage = e.message;
+      _isBusy = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Google sign-in failed. Please try again.';
       _isBusy = false;
       notifyListeners();
       return false;

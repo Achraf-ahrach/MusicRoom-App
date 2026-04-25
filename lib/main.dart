@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'config/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'router/app_router_delegate.dart';
 import 'router/app_route_information_parser.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables from .env asset
+  await dotenv.load(fileName: '.env');
 
   // Force dark status bar to match the app theme
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

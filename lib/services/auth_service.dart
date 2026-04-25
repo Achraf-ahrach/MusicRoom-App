@@ -163,6 +163,34 @@ class AuthService {
 
     return body;
   }
+
+  /// POST /auth/google
+  /// Sends Google profile data to the backend for login/auto-registration.
+  /// Returns the full response body (includes user, accessToken, refreshToken).
+  /// Throws [AuthException] on failure.
+  Future<Map<String, dynamic>> googleSignIn({
+    required String email,
+    required String fullName,
+    required String googleId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/google'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'fullName': fullName,
+        'googleId': googleId,
+      }),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      throw AuthException(body['error'] as String? ?? 'Google sign-in failed');
+    }
+
+    return body;
+  }
 }
 
 /// Custom exception for auth-related errors.
