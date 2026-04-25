@@ -41,9 +41,6 @@ class AuthProvider with ChangeNotifier {
     _authStatus = AuthStatus.loading;
     notifyListeners();
 
-    // Splash delay
-    await Future.delayed(const Duration(milliseconds: 1500));
-
     final prefs = await SharedPreferences.getInstance();
     final userData = prefs.getString(_userKey);
 

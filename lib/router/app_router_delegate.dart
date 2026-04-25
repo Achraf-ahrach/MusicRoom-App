@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
-import '../screens/splash_screen.dart';
 import '../screens/auth_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/signup_screen.dart';
@@ -98,72 +97,61 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
   }
 
   List<Page<dynamic>> _buildPages() {
-    switch (authProvider.authStatus) {
-      // ── Loading → Splash ──────────────────────────────────────────────
-      case AuthStatus.loading:
-        return [
-          const MaterialPage(
-            key: ValueKey('splash'),
-            child: SplashScreen(),
-          ),
-        ];
-
-      // ── Unauthenticated → Auth flow ───────────────────────────────────
-      case AuthStatus.unauthenticated:
-        return [
-          // Base: Auth landing screen (always in stack)
-          MaterialPage(
-            key: const ValueKey('auth'),
-            child: AuthScreen(routerDelegate: this),
-          ),
-          // Optionally push login or signup on top
-          if (_authSubRoute == AuthSubRoute.login)
-            MaterialPage(
-              key: const ValueKey('login'),
-              child: LoginScreen(routerDelegate: this),
-            ),
-          if (_authSubRoute == AuthSubRoute.signup)
-            MaterialPage(
-              key: const ValueKey('signup'),
-              child: SignupScreen(routerDelegate: this),
-            ),
-          if (_authSubRoute == AuthSubRoute.otp && _otpEmail != null)
-            MaterialPage(
-              key: const ValueKey('otp'),
-              child: OtpScreen(routerDelegate: this, email: _otpEmail!),
-            ),
-          if (_authSubRoute == AuthSubRoute.forgotPassword)
-            MaterialPage(
-              key: const ValueKey('forgot_password'),
-              child: ForgotPasswordScreen(routerDelegate: this),
-            ),
-          if (_authSubRoute == AuthSubRoute.resetOtp && _resetEmail != null)
-            MaterialPage(
-              key: const ValueKey('reset_otp'),
-              child: ResetOtpScreen(routerDelegate: this, email: _resetEmail!),
-            ),
-          if (_authSubRoute == AuthSubRoute.newPassword && _resetEmail != null && _resetOtp != null)
-            MaterialPage(
-              key: const ValueKey('new_password'),
-              child: NewPasswordScreen(
-                routerDelegate: this,
-                email: _resetEmail!,
-                otp: _resetOtp!,
-              ),
-            ),
-        ];
-
-      // ── Authenticated → Home (no auth screens in stack) ───────────────
-      case AuthStatus.authenticated:
-        // Reset sub-route so re-logout starts at landing.
-        _authSubRoute = AuthSubRoute.landing;
-        return [
-          const MaterialPage(
-            key: ValueKey('home'),
-            child: HomeScreen(),
-          ),
-        ];
+    // ── Authenticated → Home (no auth screens in stack) ───────────────
+    if (authProvider.authStatus == AuthStatus.authenticated) {
+      // Reset sub-route so re-logout starts at landing.
+      _authSubRoute = AuthSubRoute.landing;
+      return [
+        const MaterialPage(
+          key: ValueKey('home'),
+          child: HomeScreen(),
+        ),
+      ];
     }
+
+    // Both Loading & Unauthenticated share the base auth screen.
+    return [
+      // Base: Auth landing screen (always in stack)
+      MaterialPage(
+        key: const ValueKey('auth_base'),
+        child: AuthScreen(routerDelegate: this),
+      ),
+      // Optionally push login or signup on top if unauthenticated
+      if (authProvider.authStatus == AuthStatus.unauthenticated && _authSubRoute == AuthSubRoute.login)
+        MaterialPage(
+          key: const ValueKey('login'),
+          child: LoginScreen(routerDelegate: this),
+        ),
+      if (authProvider.authStatus == AuthStatus.unauthenticated && _authSubRoute == AuthSubRoute.signup)
+        MaterialPage(
+          key: const ValueKey('signup'),
+          child: SignupScreen(routerDelegate: this),
+        ),
+      if (authProvider.authStatus == AuthStatus.unauthenticated && _authSubRoute == AuthSubRoute.otp && _otpEmail != null)
+        MaterialPage(
+          key: const ValueKey('otp'),
+          child: OtpScreen(routerDelegate: this, email: _otpEmail!),
+        ),
+      if (authProvider.authStatus == AuthStatus.unauthenticated && _authSubRoute == AuthSubRoute.forgotPassword)
+        MaterialPage(
+          key: const ValueKey('forgot_password'),
+          child: ForgotPasswordScreen(routerDelegate: this),
+        ),
+      if (authProvider.authStatus == AuthStatus.unauthenticated && _authSubRoute == AuthSubRoute.resetOtp && _resetEmail != null)
+        MaterialPage(
+          key: const ValueKey('reset_otp'),
+          child: ResetOtpScreen(routerDelegate: this, email: _resetEmail!),
+        ),
+      if (authProvider.authStatus == AuthStatus.unauthenticated && _authSubRoute == AuthSubRoute.newPassword && _resetEmail != null && _resetOtp != null)
+        MaterialPage(
+          key: const ValueKey('new_password'),
+          child: NewPasswordScreen(
+            routerDelegate: this,
+            email: _resetEmail!,
+            otp: _resetOtp!,
+          ),
+        ),
+    ];
   }
 
   // ── Required overrides ────────────────────────────────────────────────
