@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 /// Base URL points to Android emulator localhost (127.0.0.1:3000).
 class AuthService {
   // Android emulator maps 10.0.2.2 → host machine's localhost
-  static const String _baseUrl = 'http://127.0.0.1:3000';
+  static const String _baseUrl = 'https://anisa-phenetic-predictively.ngrok-free.dev';
 
   /// POST /login
   /// Returns the full parsed response body.

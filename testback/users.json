@@ -1,30 +1,12 @@
 [
   {
-    "id": "1777042843617",
-    "fullName": "anas",
-    "email": "anas@gmail.com",
-    "password": "123456789",
+    "id": "102177548694082294723",
+    "fullName": "Anas Bouzanbil",
+    "email": "anassbouznbil@gmail.com",
+    "password": null,
     "token": null,
     "isVerified": true,
-    "accessToken": "865c8654d842e627611f265125f9daf457f9e427d1cc2546b2048268d43910cb",
-    "refreshToken": "8206161d993168da4c1388c7a595c508bf8876844fd3c36d49686dd676d2ffde"
-  },
-  {
-    "id": "1777042911631",
-    "fullName": "a@a.a",
-    "email": "a@a.a",
-    "password": "123456",
-    "token": null,
-    "isVerified": true,
-    "accessToken": "804cb82228439a43321b47d4deb150619ef1166ef823b16b7e101e23ca5836c3",
-    "refreshToken": "ee99daed6e0633d7bfa793985f86fa0d5ed965ec8cb180e96ca87bb063bb89eb"
-  },
-  {
-    "id": "1777043164921",
-    "fullName": "anassw",
-    "email": "w@w.w",
-    "password": "123456",
-    "token": "713326",
-    "isVerified": false
+    "accessToken": "0ae4d79cb740b22b3fd8c4c181535f1ec94959c2430cd8719f74d359e40f8015",
+    "refreshToken": "e9b0767f90941157d59265604aa4801dd12f412cb2b971b06e22deed2f8525fd"
   }
 ]
