@@ -255,15 +255,32 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      Center(
-                        child: Text(
-                          'or',
-                          style: _modernStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                              thickness: 1,
+                            ),
                           ),
-                        ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              'or',
+                              style: _modernStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                              thickness: 1,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 28),
                       Row(
@@ -275,11 +292,6 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                               auth.signInWithGoogle();
                             },
                             child: const _GoogleLogo(size: 24),
-                          ),
-                          const SizedBox(width: 24),
-                          _buildSocialButton(
-                            onPressed: () {},
-                            child: const Icon(Icons.facebook, color: Colors.blue, size: 28),
                           ),
                         ],
                       ),

@@ -62,7 +62,7 @@ class _MusicRoomAppState extends State<MusicRoomApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'MusicRoom',
+      title: 'Aura',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routerDelegate: _routerDelegate,
