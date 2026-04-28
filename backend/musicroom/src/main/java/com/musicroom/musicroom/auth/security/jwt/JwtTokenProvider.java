@@ -4,7 +4,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import javax.crypto.SecretKey;
 import java.util.Date;
 
@@ -14,15 +13,17 @@ public class JwtTokenProvider {
     @Value("${jwt.secret:your-secret-key-change-this-in-production}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration.access:600000}") // 10 minutes in milliseconds
-    private long accessTokenExpirationMs;
+    public long getAccessTokenExpiration() {
+        return 600000;  // 10 minutes in milliseconds
+    }
 
-    @Value("${jwt.expiration.refresh:604800000}") // 7 days in milliseconds
-    private long refreshTokenExpirationMs;
+    public long getRefreshTokenExpiration() {
+        return 604800000;  // 7 days in milliseconds
+    }
 
     public String generateAccessToken(String email, String userId) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
+        Date expiryDate = new Date(now.getTime() + getAccessTokenExpiration());
 
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
 
@@ -38,7 +39,7 @@ public class JwtTokenProvider {
 
     public String generateRefreshToken(String email, String userId) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshTokenExpirationMs);
+        Date expiryDate = new Date(now.getTime() + getRefreshTokenExpiration());
 
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
 

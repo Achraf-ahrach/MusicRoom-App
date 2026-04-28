@@ -8,7 +8,6 @@ import com.musicroom.musicroom.auth.dto.auth.TokenRefreshRequestDTO;
 import com.musicroom.musicroom.auth.dto.auth.TokenRefreshResponseDTO;
 import com.musicroom.musicroom.auth.dto.auth.SendVerificationEmailDTO;
 import com.musicroom.musicroom.auth.dto.auth.VerifyEmailDTO;
-
 import com.musicroom.musicroom.auth.service.AuthService;
 import com.musicroom.musicroom.auth.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.http.ResponseEntity;
 
 @RestController
@@ -74,4 +74,26 @@ public class AuthController {
         String response = authService.PassResetChange(request);
         return ResponseEntity.ok(response);
     }
+
+
+
+    @PostMapping("/google-login")
+    public ResponseEntity<AuthResponse> googleLogin(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            // Extract token from "Bearer <token>"
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                throw new RuntimeException("Missing or invalid Authorization header");
+            }
+            
+            String idToken = authHeader.replace("Bearer ", "");
+            
+            // Call service to handle Google login with token
+            AuthResponse response = authService.googleLoginWithToken(idToken);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            throw new RuntimeException("Google login failed: " + e.getMessage());
+        }
+    }
+
 }

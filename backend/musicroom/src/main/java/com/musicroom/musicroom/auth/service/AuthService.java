@@ -16,7 +16,6 @@ import com.musicroom.musicroom.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import java.util.Random;
 
 @Service
@@ -56,7 +55,7 @@ public class AuthService {
                 accessToken,
                 refreshToken,
                 "Bearer",
-                600000,
+                jwtTokenProvider.getAccessTokenExpiration(),
                 new RegisterResponseDTO(
                         savedUser.getId(),
                         savedUser.getEmail(),
@@ -68,7 +67,7 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequestDTO request) {
-        // Find user by email
+
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
         
@@ -87,7 +86,7 @@ public class AuthService {
                 accessToken,
                 refreshToken,
                 "Bearer",
-                600000,
+                jwtTokenProvider.getAccessTokenExpiration(),
                 new RegisterResponseDTO(
                         user.getId(),
                         user.getEmail(),
@@ -105,7 +104,6 @@ public class AuthService {
 
         User user = refreshToken.getUser();
 
-        // Generate new access token
         String accessToken = jwtTokenProvider.generateAccessToken(
                 user.getEmail(),
                 user.getId().toString()
@@ -115,7 +113,7 @@ public class AuthService {
                 accessToken,
                 request.refreshToken(),
                 "Bearer",
-                600000 
+                jwtTokenProvider.getAccessTokenExpiration()
         );
     }
 
@@ -174,6 +172,112 @@ public class AuthService {
         userRepository.save(user);
 
         return "Email verified successfully";
+    }
+
+
+
+    public AuthResponse googleLogin(String email, String name, String googleId) {
+        // Check if user exists
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    // Create new user if doesn't exist
+                    User newUser = User.builder()
+                            .email(email)
+                            .displayName(name)
+                            .authProvider("google")
+                            .providerId(googleId)
+                            .emailVerified(true)  // Google email is already verified
+                            .passwordHash(null)  // No password for Google users
+                            .build();
+                    return userRepository.save(newUser);
+                });
+
+        // Generate tokens
+        String accessToken = jwtTokenProvider.generateAccessToken(
+                user.getEmail(),
+                user.getId().toString()
+        );
+
+        String refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return new AuthResponse(
+                accessToken,
+                refreshToken,
+                "Bearer",
+                jwtTokenProvider.getAccessTokenExpiration(),
+                new RegisterResponseDTO(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getDisplayName(),
+                        user.getAvatarUrl(),
+                        String.valueOf(user.isEmailVerified())
+                )
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    public AuthResponse googleLoginWithToken(String idToken) {
+        try {
+            // Decode the JWT token
+            String[] parts = idToken.split("\\.");
+            if (parts.length != 3) {
+                throw new RuntimeException("Invalid token format");
+            }
+            
+            // Decode payload (2nd part)
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+            
+            // Parse JSON
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            java.util.Map<String, Object> tokenData = mapper.readValue(payload, java.util.Map.class);
+            
+            String email = (String) tokenData.get("email");
+            String name = (String) tokenData.get("name");
+            String googleId = (String) tokenData.get("sub");
+
+            if (email == null || name == null || googleId == null) {
+                throw new RuntimeException("Invalid token: missing email, name, or googleId");
+            }
+
+            // Check if user exists
+            User user = userRepository.findByEmail(email)
+                    .orElseGet(() -> {
+                        // Create new user if doesn't exist
+                        User newUser = User.builder()
+                                .email(email)
+                                .displayName(name)
+                                .authProvider("google")
+                                .providerId(googleId)
+                                .emailVerified(true)
+                                .passwordHash(null)
+                                .build();
+                        return userRepository.save(newUser);
+                    });
+
+            // Generate tokens
+            String accessToken = jwtTokenProvider.generateAccessToken(
+                    user.getEmail(),
+                    user.getId().toString()
+            );
+
+            String refreshToken = refreshTokenService.createRefreshToken(user);
+
+            return new AuthResponse(
+                    accessToken,
+                    refreshToken,
+                    "Bearer",
+                    jwtTokenProvider.getAccessTokenExpiration(),
+                    new RegisterResponseDTO(
+                            user.getId(),
+                            user.getEmail(),
+                            user.getDisplayName(),
+                            user.getAvatarUrl(),
+                            String.valueOf(user.isEmailVerified())
+                    )
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to process Google token: " + e.getMessage());
+        }
     }
 
 }
