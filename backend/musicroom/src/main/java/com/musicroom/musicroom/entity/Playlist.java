@@ -9,7 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "playlists")
-@Getter @Setter @NoArgsConstructor @Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Playlist {
 
     @Id
