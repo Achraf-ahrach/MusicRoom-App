@@ -4,6 +4,7 @@ import com.musicroom.musicroom.dto.UpdatePreferencesRequest;
 import com.musicroom.musicroom.dto.UpdateProfileRequest;
 import com.musicroom.musicroom.dto.UserProfileDto;
 import com.musicroom.musicroom.entity.User;
+import com.musicroom.musicroom.exception.ResourceNotFoundException;
 import com.musicroom.musicroom.repository.FriendshipRepository;
 import com.musicroom.musicroom.repository.UserRepository;
 import com.musicroom.musicroom.service.UserService;
@@ -23,7 +24,8 @@ public class UserServiceImpl implements UserService {
     public UserProfileDto getMyProfile(UUID userId) {
 
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
 
         return UserProfileDto.builder()
                 .id(user.getId())
@@ -41,7 +43,7 @@ public class UserServiceImpl implements UserService {
     public UserProfileDto getUserProfile(UUID requesterId, UUID targetId) {
 
         User target = userRepo.findById(targetId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         boolean areFriends =
                 friendshipRepo
@@ -70,7 +72,7 @@ public class UserServiceImpl implements UserService {
     public UserProfileDto updateMyProfile(UUID userId, UpdateProfileRequest request) {
 
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (request.getDisplayName() != null) {
             user.setDisplayName(request.getDisplayName());
@@ -97,8 +99,7 @@ public class UserServiceImpl implements UserService {
     public UserProfileDto updatePreferences(UUID userId, UpdatePreferencesRequest request) {
 
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setMusicPreferences(request.getMusicPreferences());
         userRepo.save(user);
         return getMyProfile(userId);
