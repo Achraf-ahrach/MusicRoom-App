@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 class AuthService {
   // Android emulator maps 10.0.2.2 → host machine's localhost
   static const String _baseUrl = 'https://anisa-phenetic-predictively.ngrok-free.dev';
+  static const String _authPath = '/api/auth';
 
   /// POST /login
   /// Returns the full parsed response body.
@@ -15,15 +16,16 @@ class AuthService {
     required String password,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/login'),
+      Uri.parse('$_baseUrl$_authPath/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
+    final body = _toMap(decoded);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Login failed');
+      throw AuthException(_extractErrorMessage(decoded, 'Login failed'));
     }
 
     return body;
@@ -38,19 +40,20 @@ class AuthService {
     required String password,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/signup'),
+      Uri.parse('$_baseUrl$_authPath/register'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'fullName': fullName,
+        'displayname': fullName,
         'email': email,
         'password': password,
       }),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
+    final body = _toMap(decoded);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Signup failed');
+      throw AuthException(_extractErrorMessage(decoded, 'Signup failed'));
     }
 
     return body;
@@ -65,15 +68,16 @@ class AuthService {
     required String otp,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/verify-otp'),
+      Uri.parse('$_baseUrl$_authPath/verify-email'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'token': otp}),
+      body: jsonEncode({'email': email, 'verificationCode': otp}),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
+    final body = _toMap(decoded);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Verification failed');
+      throw AuthException(_extractErrorMessage(decoded, 'Verification failed'));
     }
 
     return body;
@@ -86,15 +90,17 @@ class AuthService {
     required String email,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/resend-otp'),
+      Uri.parse('$_baseUrl$_authPath/send-verification-email'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Failed to resend OTP');
+      throw AuthException(
+        _extractErrorMessage(decoded, 'Failed to resend OTP'),
+      );
     }
   }
 
@@ -105,15 +111,17 @@ class AuthService {
     required String email,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/forgot-password'),
+      Uri.parse('$_baseUrl$_authPath/send-verification-email'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Failed to request password reset');
+      throw AuthException(
+        _extractErrorMessage(decoded, 'Failed to request password reset'),
+      );
     }
   }
 
@@ -125,43 +133,44 @@ class AuthService {
     required String otp,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/verify-reset-otp'),
+      Uri.parse('$_baseUrl$_authPath/verify-email-password-reset'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'token': otp}),
+      body: jsonEncode({'email': email, 'verificationCode': otp}),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Verification failed');
+      throw AuthException(_extractErrorMessage(decoded, 'Verification failed'));
     }
   }
 
   /// POST /reset-password
   /// Resets the user's password and returns tokens.
   /// Throws [AuthException] on failure.
-  Future<Map<String, dynamic>> resetPassword({
+  Future<void> resetPassword({
     required String email,
     required String otp,
     required String newPassword,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/reset-password'),
+      Uri.parse('$_baseUrl$_authPath/Password-reset-change'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,
-        'token': otp,
+        'verificationCode': otp,
         'newPassword': newPassword,
       }),
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Failed to reset password');
+      throw AuthException(
+        _extractErrorMessage(decoded, 'Failed to reset password'),
+      );
     }
 
-    return body;
   }
 
   /// POST /auth/google
@@ -169,27 +178,76 @@ class AuthService {
   /// Returns the full response body (includes user, accessToken, refreshToken).
   /// Throws [AuthException] on failure.
   Future<Map<String, dynamic>> googleSignIn({
-    required String email,
-    required String fullName,
-    required String googleId,
+    required String idToken,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/auth/google'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'fullName': fullName,
-        'googleId': googleId,
-      }),
+      Uri.parse('$_baseUrl$_authPath/google-login'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeBody(response.body);
+    final body = _toMap(decoded);
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Google sign-in failed');
+      throw AuthException(_extractErrorMessage(decoded, 'Google sign-in failed'));
     }
 
     return body;
+  }
+
+  dynamic _decodeBody(String body) {
+    if (body.trim().isEmpty) return <String, dynamic>{};
+    try {
+      return jsonDecode(body);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  Map<String, dynamic> _toMap(dynamic decoded) {
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return <String, dynamic>{'message': decoded.toString()};
+  }
+
+  String _extractErrorMessage(dynamic decoded, String fallback) {
+    if (decoded is Map) {
+      final map = Map<String, dynamic>.from(decoded);
+      final error = map['error'];
+      if (error is String && error.trim().isNotEmpty) return error;
+
+      final message = map['message'];
+      if (message is String && message.trim().isNotEmpty) return message;
+
+      final detail = map['detail'];
+      if (detail is String && detail.trim().isNotEmpty) return detail;
+
+      final errors = map['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        final first = errors.first;
+        if (first is String && first.trim().isNotEmpty) return first;
+        if (first is Map) {
+          final firstMap = Map<String, dynamic>.from(first);
+          final firstMsg = firstMap['message'];
+          if (firstMsg is String && firstMsg.trim().isNotEmpty) {
+            return firstMsg;
+          }
+          final firstDefault = firstMap['defaultMessage'];
+          if (firstDefault is String && firstDefault.trim().isNotEmpty) {
+            return firstDefault;
+          }
+        }
+      }
+    }
+
+    if (decoded is String && decoded.trim().isNotEmpty) {
+      return decoded;
+    }
+
+    return fallback;
   }
 }
 
