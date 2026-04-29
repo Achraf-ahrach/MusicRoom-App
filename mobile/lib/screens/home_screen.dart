@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
-
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../config/app_theme.dart';
-import '../providers/auth_provider.dart';
+import '../services/music_service.dart';
+import '../widgets/profile_drawer.dart';
 
 /// Main navigation screen that acts as a container for tabs (like Spotify).
 /// This is the root screen when a user is authenticated.
@@ -29,13 +26,22 @@ class _HomeScreenState extends State<HomeScreen> {
         bodyContent = const _HomeTab();
         break;
       case 1:
-        bodyContent = const _PlaceholderTab(title: 'Search', icon: Icons.search);
+        bodyContent = const _PlaceholderTab(
+          title: 'Search',
+          icon: Icons.search,
+        );
         break;
       case 2:
-        bodyContent = const _PlaceholderTab(title: 'Your Library', icon: Icons.library_music);
+        bodyContent = const _PlaceholderTab(
+          title: 'Your Library',
+          icon: Icons.library_music,
+        );
         break;
       case 3:
-        bodyContent = const _PlaceholderTab(title: 'Create', icon: Icons.add_box);
+        bodyContent = const _PlaceholderTab(
+          title: 'Create',
+          icon: Icons.add_box,
+        );
         break;
       default:
         bodyContent = const _HomeTab();
@@ -43,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      drawer: const ProfileDrawer(),
       body: bodyContent,
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
@@ -106,128 +113,304 @@ class _HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        final userName = auth.currentUser?.fullName ?? 'User';
+        final userName = auth.currentUser?.fullName.split(' ').first ?? 'User';
 
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF1A0A2E),
-                AppTheme.background,
-              ],
-              stops: [0.0, 0.4],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Spacer(flex: 2),
+        return FutureBuilder<Map<String, dynamic>>(
+          future: MusicService.fetchHomeData(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.accent),
+              );
+            } else if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Failed to load data: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              );
+            } else if (!snapshot.hasData) {
+              return const Center(
+                child: Text(
+                  'No data found',
+                  style: TextStyle(color: Colors.white),
+                ),
+              );
+            }
 
-                  // ── Avatar placeholder ─────────────────────────────────
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppTheme.accent, Color(0xFF7B1FCC)],
+            final data = snapshot.data!;
+            final recentRooms = List<Map<String, dynamic>>.from(
+              data['recentRooms'] ?? [],
+            );
+            final liveRooms = List<Map<String, dynamic>>.from(
+              data['liveRooms'] ?? [],
+            );
+            final madeForYou = List<Map<String, dynamic>>.from(
+              data['madeForYou'] ?? [],
+            );
+
+            return CustomScrollView(
+              slivers: [
+                // ── Header (App Bar) ──────────────────────────────────
+                SliverAppBar(
+                  backgroundColor: AppTheme.background,
+                  pinned: true,
+                  elevation: 0,
+                  automaticallyImplyLeading:
+                      false, // removes the hamburger menu
+                  toolbarHeight: 64,
+                  title: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Scaffold.of(context).openDrawer(),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.accent, Color(0xFF7B1FCC)],
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              userName.isNotEmpty
+                                  ? userName[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.accent.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          spreadRadius: 4,
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── "Jump Back In" (Recent Grid) ─────────────────────
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: GridView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 3,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                ),
+                            itemCount: recentRooms.length,
+                            itemBuilder: (context, index) {
+                              final item = recentRooms[index];
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF282828),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(4),
+                                        bottomLeft: Radius.circular(4),
+                                      ),
+                                      child: Image.network(
+                                        item['image'] ?? '',
+                                        width: 56,
+                                        height: 56,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        item['title'] ?? '',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ── "Live Music Rooms" ───────────────────────────────
+                        _buildSectionTitle('Active Music Rooms'),
+                        SizedBox(
+                          height: 180,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: liveRooms.length,
+                            itemBuilder: (context, index) {
+                              final room = liveRooms[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          child: Image.network(
+                                            room['image'] ?? '',
+                                            width: 140,
+                                            height: 140,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.redAccent,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: const Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.circle,
+                                                  color: Colors.white,
+                                                  size: 8,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'LIVE',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      room['title'] ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── "Made for you" ───────────────────────────────────
+                        _buildSectionTitle('Made for you'),
+                        SizedBox(
+                          height: 200,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: madeForYou.length,
+                            itemBuilder: (context, index) {
+                              final playlist = madeForYou[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 16.0),
+                                child: SizedBox(
+                                  width: 140,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          playlist['image'] ?? '',
+                                          width: 140,
+                                          height: 140,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        playlist['title'] ?? '',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        playlist['subtitle'] ?? '',
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: Text(
-                        _getInitials(userName),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 32),
-
-                  // ── Welcome text ───────────────────────────────────────
-                  Text(
-                    'Welcome,',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$userName!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Your music room is ready',
-                    style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 14,
-                    ),
-                  ),
-
-                  const Spacer(flex: 3),
-
-                  // ── Logout button ──────────────────────────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: () => auth.logout(),
-                      icon: const Icon(Icons.logout_rounded, size: 20),
-                      label: const Text('Log out'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textSecondary,
-                        side: BorderSide(
-                          color: AppTheme.textMuted.withValues(alpha: 0.5),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  /// Extracts initials from a full name (e.g. "John Doe" → "JD").
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }
 
