@@ -82,9 +82,7 @@ class AuthService {
   /// POST /resend-otp
   /// Generates and sends a new OTP for an unverified user.
   /// Throws [AuthException] on failure.
-  Future<void> resendOtp({
-    required String email,
-  }) async {
+  Future<void> resendOtp({required String email}) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/resend-otp'),
       headers: {'Content-Type': 'application/json'},
@@ -101,9 +99,7 @@ class AuthService {
   /// POST /forgot-password
   /// Requests an OTP for password reset.
   /// Throws [AuthException] on failure.
-  Future<void> forgotPassword({
-    required String email,
-  }) async {
+  Future<void> forgotPassword({required String email}) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/forgot-password'),
       headers: {'Content-Type': 'application/json'},
@@ -113,7 +109,9 @@ class AuthService {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Failed to request password reset');
+      throw AuthException(
+        body['error'] as String? ?? 'Failed to request password reset',
+      );
     }
   }
 
@@ -158,7 +156,9 @@ class AuthService {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode != 200) {
-      throw AuthException(body['error'] as String? ?? 'Failed to reset password');
+      throw AuthException(
+        body['error'] as String? ?? 'Failed to reset password',
+      );
     }
 
     return body;
