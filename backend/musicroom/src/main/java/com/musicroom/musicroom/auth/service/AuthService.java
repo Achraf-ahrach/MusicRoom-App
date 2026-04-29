@@ -29,41 +29,49 @@ public class AuthService {
     private final EmailService emailService;
 
     public AuthResponse register(RegisterRequestDTO request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email already exists");
-        } else if (request.password().length() < 6) {
-            throw new RuntimeException("Password must be at least 6 characters");
-        }
+        try {
+                if (userRepository.existsByEmail(request.email())) {
+                throw new RuntimeException("Email already exists");
+                } else if (request.password().length() < 6) {
+                throw new RuntimeException("Password must be at least 6 characters");
+                }
 
-        User user = User.builder()
-                .email(request.email())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .displayName(request.displayname())
-                .authProvider("local")
-                .build();
+                String verificationCode = String.format("%06d", new Random().nextInt(1000000));
+                User user = User.builder()
+                        .email(request.email())
+                        .passwordHash(passwordEncoder.encode(request.password()))
+                        .displayName(request.displayname())
+                        .authProvider("local")
+                        .build();
+        
+                user.setVerificationCode(verificationCode);
 
-        User savedUser = userRepository.save(user);
-
-        String accessToken = jwtTokenProvider.generateAccessToken(
-                savedUser.getEmail(),
-                savedUser.getId().toString()
-        );
-
-        String refreshToken = refreshTokenService.createRefreshToken(savedUser);
-
-        return new AuthResponse(
-                accessToken,
-                refreshToken,
-                "Bearer",
-                jwtTokenProvider.getAccessTokenExpiration(),
-                new RegisterResponseDTO(
-                        savedUser.getId(),
+                User savedUser = userRepository.save(user);
+                emailService.sendVerificationEmail(request.email(), verificationCode);
+                
+                String accessToken = jwtTokenProvider.generateAccessToken(
                         savedUser.getEmail(),
-                        savedUser.getDisplayName(),
-                        savedUser.getAvatarUrl(),
-                        String.valueOf(savedUser.isEmailVerified())
-                )
-        );
+                        savedUser.getId().toString()
+                );
+
+                String refreshToken = refreshTokenService.createRefreshToken(savedUser);
+
+                return new AuthResponse(
+                        accessToken,
+                        refreshToken,
+                        "Bearer",
+                        jwtTokenProvider.getAccessTokenExpiration(),
+                        new RegisterResponseDTO(
+                                savedUser.getId(),
+                                savedUser.getEmail(),
+                                savedUser.getDisplayName(),
+                                savedUser.getAvatarUrl(),
+                                String.valueOf(savedUser.isEmailVerified())
+                        )
+                );
+        } catch (Exception e) {
+                throw new RuntimeException("Registration failed: " + e.getMessage());
+        }
     }
 
     public AuthResponse login(LoginRequestDTO request) {
