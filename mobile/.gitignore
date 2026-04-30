@@ -1,0 +1,8 @@
+# Flutter/Dart build output
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+*.apk
+*.aab
+*.dill
