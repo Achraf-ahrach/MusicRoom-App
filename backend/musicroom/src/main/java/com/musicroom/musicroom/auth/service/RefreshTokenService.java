@@ -5,6 +5,8 @@ import com.musicroom.musicroom.auth.security.jwt.JwtTokenProvider;
 import com.musicroom.musicroom.entity.RefreshToken;
 import com.musicroom.musicroom.entity.User;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -47,11 +49,34 @@ public class RefreshTokenService {
         return Optional.empty();
     }
 
-    // Delete refresh token (logout) - completely remove from database
+    // revoke refresh token (logout)
     public void revokeRefreshToken(String token) {
-        Optional<RefreshToken> refreshToken = refreshTokenRepository.findByToken(token);
-        if (refreshToken.isPresent()) {
-            refreshTokenRepository.delete(refreshToken.get());
-        }
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
+        .orElseThrow(() -> new RuntimeException("Token not found"));
+        
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+        
+        System.out.println("Token revoked at: " + LocalDateTime.now());
     }
+
+    // delete invalid refresh token (2 am every day)
+
+    @Scheduled(cron = "0 0 2 * * *")
+    public void cleanupExpiredTokens() {
+        try{
+
+            LocalDateTime cutoffDate = LocalDateTime.now().minusDays(1);
+            
+            long deletedCount = refreshTokenRepository
+            .deleteByExpiryDateBeforeAndRevoked(cutoffDate, true);
+            
+            System.out.println("Cleanup completed at: " + LocalDateTime.now() + " | Deleted: " + deletedCount);
+        } catch (Exception e) {
+            System.err.println("Error during token cleanup at: " + LocalDateTime.now());
+            e.printStackTrace();
+        }
+
+    }
+
 }

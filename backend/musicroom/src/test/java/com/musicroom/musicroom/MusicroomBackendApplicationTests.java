@@ -1,9 +1,9 @@
-package com.musicroom.musicroom_backend;
+package com.musicroom.musicroom;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+@SpringBootTest(classes = MusicroomApplication.class)
 class MusicroomBackendApplicationTests {
 
 	@Test

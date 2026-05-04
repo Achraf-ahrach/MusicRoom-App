@@ -135,7 +135,7 @@ public class AuthService {
         user.setVerificationCode(verificationCode);
         userRepository.save(user);
 
-        // ✅ SEND EMAIL WITH CODE
+        // SEND EMAIL
         emailService.sendVerificationEmail(request.email(), verificationCode);
 
         return "Verification code sent to " + request.email();
@@ -165,7 +165,7 @@ public class AuthService {
             throw new RuntimeException("Invalid verification code");
         }
 
-        return "Email verified successfully";
+        return "Code verified successfully";
     }
 
     public String PassResetChange(ResetPassword request) {
@@ -179,7 +179,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
 
-        return "Email verified successfully";
+        return "Password reset successfully";
     }
 
 

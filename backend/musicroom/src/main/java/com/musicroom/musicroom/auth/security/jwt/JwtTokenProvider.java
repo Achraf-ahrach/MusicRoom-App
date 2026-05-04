@@ -10,15 +10,15 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret:your-secret-key-change-this-in-production}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
     public long getAccessTokenExpiration() {
-        return 600000;  // 10 minutes in milliseconds
+        return 600000;  // 10 minutes
     }
 
     public long getRefreshTokenExpiration() {
-        return 604800000;  // 7 days in milliseconds
+        return 604800000;  // 7 days
     }
 
     public String generateAccessToken(String email, String userId) {

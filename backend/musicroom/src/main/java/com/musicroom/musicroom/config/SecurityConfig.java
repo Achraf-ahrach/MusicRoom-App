@@ -44,7 +44,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/verify-email-password-reset").permitAll()
                         .requestMatchers("/api/auth/Password-reset-change").permitAll()
                         .requestMatchers("/api/auth/refresh").authenticated()
-                        .requestMatchers("/api/auth/google-login").permitAll()  // ✅ ADD THIS LINE
+                        .requestMatchers("/api/auth/google-login").permitAll()  
+                        .requestMatchers("/api/music/search").permitAll() // here just test of the music 
 
                         .anyRequest().authenticated()
                 )
