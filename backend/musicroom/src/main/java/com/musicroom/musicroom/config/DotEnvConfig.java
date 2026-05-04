@@ -19,8 +19,8 @@ public class DotEnvConfig {
             //  Check if .env file exists
             File envFile = new File(".env");
             if (!envFile.exists()) {
-                System.out.println("⚠️ .env file not found at: " + envFile.getAbsolutePath());
-                System.out.println("⚠️ Using environment variables or application.properties instead");
+                System.out.println(".env file not found at: " + envFile.getAbsolutePath());
+                System.out.println("Using environment variables or application.properties instead");
                 return;
             }
             
