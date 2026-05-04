@@ -1,0 +1,36 @@
+# ========================================
+# Database Configuration
+# ========================================
+DB_URL=jdbc:postgresql://localhost:5432/musicroom
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_DRIVER=org.postgresql.Driver
+
+# ========================================
+# JWT Configuration
+# ========================================
+JWT_SECRET=adc5f2db2d334f70b6cfc64031b43564f0a0ac670e3b1b901b2d1ea9cadeb239fecdaaabf4489703508a94566f1b9024c0564f1dba65d918411eeed43cb3c1db
+JWT_EXPIRATION_ACCESS=600000
+JWT_EXPIRATION_REFRESH=604800000
+
+# ========================================
+# Email Configuration
+# ========================================
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=aboubakerfanti1@gmail.com
+MAIL_PASSWORD=flal huwm skdv thme
+MAIL_FROM=aboubakerfanti1@gmail.com
+MAIL_FROM_NAME=Music Room
+
+# ========================================
+# Google OAuth2
+# ========================================
+GOOGLE_CLIENT_ID=273882654859-3k5fopofjatfjqt8r0bu0oh22m03gh5f.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+
+# ========================================
+# Application Configuration
+# ========================================
+APP_NAME=musicroom
+SPRING_PROFILE=dev
