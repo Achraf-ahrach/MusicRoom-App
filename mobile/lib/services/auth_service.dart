@@ -1,11 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Handles all HTTP communication with the authentication backend.
-/// Base URL points to Android emulator localhost (127.0.0.1:3000).
+/// Base URL points to the backend API.
 class AuthService {
-  // Android emulator maps 10.0.2.2 → host machine's localhost
-  static const String _baseUrl = 'https://anisa-phenetic-predictively.ngrok-free.dev';
+  // Get base URL from .env file
+  String get _effectiveBaseUrl {
+    final url = dotenv.env['API_URL'];
+    if (url != null && url.isNotEmpty) {
+      return url;
+    }
+    // Fallback to localhost for development
+    return 'http://localhost:8080';
+  }
+
   static const String _authPath = '/api/auth';
 
   /// POST /login
@@ -16,7 +25,7 @@ class AuthService {
     required String password,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/login'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
@@ -40,7 +49,7 @@ class AuthService {
     required String password,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/register'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/register'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'displayname': fullName,
@@ -68,7 +77,7 @@ class AuthService {
     required String otp,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/verify-email'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/verify-email'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'verificationCode': otp}),
     );
@@ -90,7 +99,7 @@ class AuthService {
     required String email,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/send-verification-email'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/send-verification-email'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
@@ -111,7 +120,7 @@ class AuthService {
     required String email,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/send-verification-email'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/send-verification-email'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
@@ -133,7 +142,7 @@ class AuthService {
     required String otp,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/verify-email-password-reset'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/verify-email-password-reset'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'verificationCode': otp}),
     );
@@ -154,7 +163,7 @@ class AuthService {
     required String newPassword,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/Password-reset-change'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/Password-reset-change'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,
@@ -181,7 +190,7 @@ class AuthService {
     required String idToken,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$_authPath/google-login'),
+      Uri.parse('$_effectiveBaseUrl$_authPath/google-login'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
