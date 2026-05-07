@@ -71,7 +71,19 @@ class AuthProvider with ChangeNotifier {
       );
 
       // Extract user and tokens from response
-      final userJson = response['user'] as Map<String, dynamic>;
+      final userInfo = response['userInfo'];
+      if (userInfo is! Map) {
+        throw const AuthException('Unexpected login response from server');
+      }
+      final userJson = Map<String, dynamic>.from(userInfo);
+      final isEmailVerified = _toBool(userJson['emailVerified']);
+      if (!isEmailVerified) {
+        _isBusy = false;
+        notifyListeners();
+        throw const UserNotVerifiedException();
+      }
+
+      userJson['fullName'] = userJson['displayname'] ?? '';
       userJson['accessToken'] = response['accessToken'];
       userJson['refreshToken'] = response['refreshToken'];
       _currentUser = UserModel.fromJson(userJson);
@@ -84,12 +96,11 @@ class AuthProvider with ChangeNotifier {
       _isBusy = false;
       notifyListeners();
       return true;
+    } on UserNotVerifiedException {
+      _isBusy = false;
+      notifyListeners();
+      rethrow;
     } on AuthException catch (e) {
-      if (e.message == 'User is not verified') {
-        _isBusy = false;
-        notifyListeners();
-        throw const UserNotVerifiedException();
-      }
       _errorMessage = e.message;
       _isBusy = false;
       notifyListeners();
@@ -146,19 +157,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _authService.verifyOtp(email: email, otp: otp);
-
-      // Extract user and tokens
-      final userJson = response['user'] as Map<String, dynamic>;
-      userJson['accessToken'] = response['accessToken'];
-      userJson['refreshToken'] = response['refreshToken'];
-      _currentUser = UserModel.fromJson(userJson);
-
-      // Persist session
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userKey, _currentUser!.encode());
-
-      _authStatus = AuthStatus.authenticated;
+      await _authService.verifyOtp(email: email, otp: otp);
       _isBusy = false;
       notifyListeners();
       return true;
@@ -261,23 +260,11 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _authService.resetPassword(
+      await _authService.resetPassword(
         email: email,
         otp: otp,
         newPassword: newPassword,
       );
-
-      // Extract user and tokens
-      final userJson = response['user'] as Map<String, dynamic>;
-      userJson['accessToken'] = response['accessToken'];
-      userJson['refreshToken'] = response['refreshToken'];
-      _currentUser = UserModel.fromJson(userJson);
-
-      // Persist session
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userKey, _currentUser!.encode());
-
-      _authStatus = AuthStatus.authenticated;
       _isBusy = false;
       notifyListeners();
       return true;
@@ -319,13 +306,20 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
 
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw const AuthException('Google sign-in failed');
+      }
+
       final response = await _authService.googleSignIn(
-        email: googleUser.email,
-        fullName: googleUser.displayName ?? 'Google User',
-        googleId: googleUser.id,
+        idToken: idToken,
       );
 
-      final userJson = response['user'] as Map<String, dynamic>;
+      final userJson = Map<String, dynamic>.from(
+        response['userInfo'] as Map<String, dynamic>,
+      );
+      userJson['fullName'] = userJson['displayname'] ?? '';
       userJson['accessToken'] = response['accessToken'] as String? ?? '';
       userJson['refreshToken'] = response['refreshToken'] as String? ?? '';
       _currentUser = UserModel.fromJson(userJson);
@@ -366,5 +360,12 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  bool _toBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    if (value is num) return value != 0;
+    return false;
   }
 }

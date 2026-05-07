@@ -4,6 +4,8 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -37,6 +39,9 @@ public class User {
     @Column(name = "email_verified")
     private boolean emailVerified = false;
 
+    @Column(name = "verification_code", length = 6)
+    private String verificationCode;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "public_info", columnDefinition = "jsonb")
     private Map<String, Object> publicInfo;
@@ -58,4 +63,8 @@ public class User {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<RefreshToken> refreshTokens = new ArrayList<>();
 }

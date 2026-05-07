@@ -32,11 +32,18 @@ class _OtpScreenState extends State<OtpScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     authProvider.clearError();
 
-    await authProvider.verifyOtpAndLogin(
+    final success = await authProvider.verifyOtpAndLogin(
       email: widget.email,
       otp: _otpController.text.trim(),
     );
-    // Navigation to Home happens automatically upon success via RouterDelegate.
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email verified. Please log in.'),
+        ),
+      );
+      widget.routerDelegate.navigateToLogin();
+    }
   }
 
   /// Requests a new OTP.
@@ -196,7 +203,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                   ),
                                 ),
                               )
-                            : const Text('Verify & Log in'),
+                            : const Text('Verify'),
                       ),
                     ),
 

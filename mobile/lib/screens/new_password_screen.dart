@@ -45,9 +45,15 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
       otp: widget.otp,
       newPassword: _passwordController.text,
     );
-    
-    // On success, the AuthProvider will change the status to authenticated,
-    // which will automatically redirect the user to the HomeScreen.
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset successful. Please log in.'),
+        ),
+      );
+      widget.routerDelegate.navigateToLogin();
+    }
   }
 
   @override

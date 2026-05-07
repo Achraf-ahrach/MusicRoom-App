@@ -19,36 +19,42 @@ public class TrackController {
 
     private final TrackService trackService;
 
+    @Operation(summary = "Ajouter une track au catalogue")
     @PostMapping
     public ResponseEntity<TrackDto> createTrack(
             @RequestBody CreateTrackRequest request) {
         return ResponseEntity.status(201).body(trackService.createTrack(request));
     }
 
+    @Operation(summary = "Voir le détail d'une track")
     @GetMapping("/{id}")
     public ResponseEntity<TrackDto> getTrackById(
             @PathVariable UUID id) {
         return ResponseEntity.ok(trackService.getTrackById(id));
     }
 
+    @Operation(summary = "Rechercher par titre")
     @GetMapping("/search/title")
     public ResponseEntity<List<TrackDto>> searchByTitle(
             @RequestParam String title) {
         return ResponseEntity.ok(trackService.searchByTitle(title));
     }
 
+    @Operation(summary = "Rechercher par artiste")
     @GetMapping("/search/artist")
     public ResponseEntity<List<TrackDto>> searchByArtist(
             @RequestParam String artist) {
         return ResponseEntity.ok(trackService.searchByArtist(artist));
     }
 
+    @Operation(summary = "Filtrer par provider")
     @GetMapping("/provider/{provider}")
     public ResponseEntity<List<TrackDto>> getByProvider(
             @PathVariable String provider) {
         return ResponseEntity.ok(trackService.getByProvider(provider));
     }
 
+    @Operation(summary = "Supprimer une track du catalogue")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTrack(
             @PathVariable UUID id) {

@@ -1,3 +1,4 @@
+<<<<<<<< HEAD:.gitignore
 # Environment variables (never commit real credentials)
 .env
 
@@ -46,3 +47,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+========
+# Flutter/Dart build output
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+*.apk
+*.aab
+*.dill
+>>>>>>>> 537e12bfff973e1f120fa9ac5709fdd7931df1cf:mobile/.gitignore
