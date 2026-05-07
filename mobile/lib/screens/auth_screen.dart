@@ -287,9 +287,15 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           _buildSocialButton(
-                            onPressed: () {
+                            onPressed: () async {
                               final auth = Provider.of<AuthProvider>(context, listen: false);
-                              auth.signInWithGoogle();
+                              final success = await auth.signInWithGoogle();
+                              if (!success && context.mounted) {
+                                final message = auth.errorMessage ?? 'Google sign-in failed';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                              }
                             },
                             child: const _GoogleLogo(size: 24),
                           ),
