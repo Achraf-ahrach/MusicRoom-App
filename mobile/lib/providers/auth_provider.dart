@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -336,7 +337,17 @@ class AuthProvider with ChangeNotifier {
       _isBusy = false;
       notifyListeners();
       return false;
+    } on PlatformException catch (e) {
+      _errorMessage = _mapGoogleSignInPlatformError(e);
+      debugPrint(
+        'Google Sign-In platform error: '
+        'code=${e.code}, message=${e.message}, details=${e.details}',
+      );
+      _isBusy = false;
+      notifyListeners();
+      return false;
     } catch (e) {
+      debugPrint('Google Sign-In unexpected error: $e');
       _errorMessage = 'Google sign-in failed. Please try again.';
       _isBusy = false;
       notifyListeners();
@@ -367,5 +378,29 @@ class AuthProvider with ChangeNotifier {
     if (value is String) return value.toLowerCase() == 'true';
     if (value is num) return value != 0;
     return false;
+  }
+
+  String _mapGoogleSignInPlatformError(PlatformException e) {
+    final code = e.code.toLowerCase();
+    final message = (e.message ?? '').toLowerCase();
+
+    if (code.contains('canceled') || code.contains('cancelled')) {
+      return 'Google sign-in canceled.';
+    }
+
+    // Common Android Google Sign-In config mismatch.
+    if (message.contains('developer_error') || message.contains('10')) {
+      return 'Google Sign-In configuration error (SHA-1, package name, or client ID mismatch).';
+    }
+
+    if (message.contains('network_error') || code.contains('network')) {
+      return 'Network error during Google sign-in. Check your internet and try again.';
+    }
+
+    if ((e.message ?? '').trim().isNotEmpty) {
+      return 'Google sign-in failed: ${e.message}';
+    }
+
+    return 'Google sign-in failed. Please try again.';
   }
 }

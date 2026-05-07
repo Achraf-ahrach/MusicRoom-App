@@ -1,22 +1,27 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Handles all HTTP communication with the authentication backend.
 /// Base URL points to the backend API.
 class AuthService {
   // Get base URL from .env file
-  String get _effectiveBaseUrl {
-    final url = dotenv.env['API_URL'];
-    if (url != null && url.isNotEmpty) {
-      return url;
-    }
-    // Fallback to localhost for development
-    return 'http://localhost:8080';
-  }
+  // String get _effectiveBaseUrl {
+  //   final url = dotenv.env['API_URL'];
+  //   if (url != null && url.isNotEmpty) {
+  //     return url;
+  //   }
+
+  //   // Fallbacks by platform for local development.
+  //   if (kIsWeb) return 'http://localhost:8080';
+  //   if (Platform.isAndroid) return 'http://10.0.2.2:8080';
+  //   return 'http://localhost:8080';
+  // }
 
   static const String _authPath = '/api/auth';
-
+  static const String _effectiveBaseUrl = "https://anisa-phenetic-predictively.ngrok-free.dev";
   /// POST /login
   /// Returns the full parsed response body.
   /// Throws [AuthException] on failure.

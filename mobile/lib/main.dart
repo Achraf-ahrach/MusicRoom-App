@@ -11,7 +11,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables from .env asset
-  await dotenv.load(fileName: '../.env');
+  await dotenv.load(fileName: '.env');
 
   // Force dark status bar to match the app theme
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
