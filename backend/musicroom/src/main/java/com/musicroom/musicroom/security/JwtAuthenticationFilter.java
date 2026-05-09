@@ -27,10 +27,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
-                String email = jwtTokenProvider.getEmailFromToken(jwt);
+                String userId = jwtTokenProvider.getUserIdFromToken(jwt);
                 
+                org.springframework.security.core.userdetails.UserDetails userDetails = 
+                        org.springframework.security.core.userdetails.User.withUsername(userId)
+                        .password("")
+                        .authorities(new ArrayList<>())
+                        .build();
+
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(email, null, new ArrayList<>());
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
