@@ -136,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
 
     // Generate and send verification code
     @Override
-     public void sendVerificationEmail(SendVerificationEmailDTO request) {
+     public String sendVerificationEmail(SendVerificationEmailDTO request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -152,6 +152,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to send verification email: " + e.getMessage());
         }
+        return "Verification email sent successfully";
     }
 
     // Verify email with code

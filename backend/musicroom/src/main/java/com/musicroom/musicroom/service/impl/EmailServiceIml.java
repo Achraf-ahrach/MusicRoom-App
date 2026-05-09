@@ -21,7 +21,7 @@ public class EmailServiceIml implements EmailService {
     private String fromName;
 
     @Override
-    public void sendVerificationEmail(String toEmail, String verificationCode) {
+    public String sendVerificationEmail(String toEmail, String verificationCode) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -36,6 +36,7 @@ public class EmailServiceIml implements EmailService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to send verification email: " + e.getMessage());
         }
+        return "Verification email sent successfully";
     }
     
 }

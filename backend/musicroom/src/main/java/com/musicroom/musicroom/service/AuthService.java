@@ -11,7 +11,7 @@ public interface AuthService {
         public AuthResponse googleLogin(String email, String name, String googleId);
         public AuthResponse googleLoginWithToken(String idToken);
         public TokenRefreshResponseDTO refreshToken(TokenRefreshRequestDTO request);
-        public void sendVerificationEmail(SendVerificationEmailDTO request);
+        public String sendVerificationEmail(SendVerificationEmailDTO request);
         public TokenRefreshResponseDTO refreshAccessToken(TokenRefreshRequestDTO request);
 
 

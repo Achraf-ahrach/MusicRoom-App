@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
+import 'providers/user_profile_provider.dart';
 import 'config/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'router/app_router_delegate.dart';
@@ -22,8 +23,11 @@ Future<void> main() async {
   ));
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => UserProfileProvider()),
+      ],
       child: const MusicRoomApp(),
     ),
   );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
+import 'profile/profile_screen.dart';
 
 /// Home screen — simple placeholder that shows the user's name
 /// and a logout button. Displayed when authenticated.
@@ -99,6 +100,32 @@ class HomeScreen extends StatelessWidget {
                     ),
 
                     const Spacer(flex: 3),
+
+                    // ── Profile button ──────────────────────────────────────
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.person, size: 20),
+                        label: const Text('View Profile'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // ── Logout button ──────────────────────────────────────
                     SizedBox(
