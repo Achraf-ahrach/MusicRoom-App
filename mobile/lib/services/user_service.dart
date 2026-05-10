@@ -68,6 +68,26 @@ class UserService {
     }
   }
 
+  /// Updates the user's music preferences
+  Future<UserProfileModel> updateUserPreferences(String token, Map<String, dynamic> preferencesData) async {
+    final response = await http.put(
+      Uri.parse('$_effectiveBaseUrl$_usersPath/me/preferences'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: jsonEncode({'musicPreferences': preferencesData}),
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return UserProfileModel.fromJson(decoded);
+    } else {
+      throw Exception('Failed to update preferences: ${response.statusCode}');
+    }
+  }
+
   /// Fetches friends and returns the count (Followers / Following equivalent)
   Future<int> getUserFriendsCount(String token) async {
     try {

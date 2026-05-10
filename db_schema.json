@@ -1,0 +1,587 @@
+[
+  {
+    "table_name": "events",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "events",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "events",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "last_seen",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "duration_ms",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "updated_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "version",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "owner_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_invites",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_invites",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "playlist_invites",
+    "column_name": "playlist_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_invites",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "column_name": "expiry_date",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "column_name": "revoked",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "users",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "users",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "users",
+    "column_name": "email_verified",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "users",
+    "column_name": "friends_info",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "users",
+    "column_name": "music_preferences",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "users",
+    "column_name": "private_info",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "users",
+    "column_name": "public_info",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "users",
+    "column_name": "updated_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "event_invites",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "event_invites",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "event_invites",
+    "column_name": "event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "event_invites",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "value",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "voted_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "playlist_entry_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "events",
+    "column_name": "ends_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "events",
+    "column_name": "latitude",
+    "data_type": "double precision"
+  },
+  {
+    "table_name": "events",
+    "column_name": "longitude",
+    "data_type": "double precision"
+  },
+  {
+    "table_name": "events",
+    "column_name": "starts_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "events",
+    "column_name": "owner_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "position",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "suggested_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "vote_count",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "suggested_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "track_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "device_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_tracks",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_tracks",
+    "column_name": "added_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "playlist_tracks",
+    "column_name": "added_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_tracks",
+    "column_name": "position",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "playlist_tracks",
+    "column_name": "playlist_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_tracks",
+    "column_name": "track_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "payload",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "version",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "playlist_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "friendships",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "friendships",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "friendships",
+    "column_name": "addressee_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "friendships",
+    "column_name": "requester_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "expires_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "delegate_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "device_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "owner_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "events",
+    "column_name": "description",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "artist",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "cover_url",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "events",
+    "column_name": "license_type",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "auth_provider",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "events",
+    "column_name": "name",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "avatar_url",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "events",
+    "column_name": "visibility",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "external_id",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "friendships",
+    "column_name": "status",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "provider",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "event_playlist",
+    "column_name": "status",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "title",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "password_hash",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "display_name",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "description",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "license_type",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "delegations",
+    "column_name": "permission_level",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "action",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "app_version",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "name",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "email",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "ip_address",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "event_invites",
+    "column_name": "role",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "logs",
+    "column_name": "platform",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "playlists",
+    "column_name": "visibility",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "app_version",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "column_name": "token",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "device_name",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "provider_id",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "platform",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "devices",
+    "column_name": "push_token",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "users",
+    "column_name": "verification_code",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "playlist_invites",
+    "column_name": "permission",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "playlist_operations",
+    "column_name": "operation",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "tracks",
+    "column_name": "album",
+    "data_type": "character varying"
+  }
+]

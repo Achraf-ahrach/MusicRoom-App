@@ -42,7 +42,14 @@ class UserProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateProfile(String token, String newDisplayName, String? newAvatarUrl) async {
+  Future<bool> updateProfile(
+    String token, 
+    String newDisplayName, 
+    String? newAvatarUrl, {
+    Map<String, dynamic>? publicInfo,
+    Map<String, dynamic>? privateInfo,
+    Map<String, dynamic>? friendsInfo,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -51,9 +58,31 @@ class UserProfileProvider with ChangeNotifier {
       final updateData = <String, dynamic>{
         'displayName': newDisplayName,
         if (newAvatarUrl != null && newAvatarUrl.isNotEmpty) 'avatarUrl': newAvatarUrl,
+        if (publicInfo != null) 'publicInfo': publicInfo,
+        if (privateInfo != null) 'privateInfo': privateInfo,
+        if (friendsInfo != null) 'friendsInfo': friendsInfo,
       };
 
       final updatedProfile = await _userService.updateUserProfile(token, updateData);
+      _profile = updatedProfile;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updatePreferences(String token, Map<String, dynamic> newPreferences) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updatedProfile = await _userService.updateUserPreferences(token, newPreferences);
       _profile = updatedProfile;
       _isLoading = false;
       notifyListeners();

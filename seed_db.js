@@ -88,8 +88,26 @@ async function seed() {
         }
         console.log('Created dummy friendships.');
 
-        // 4. Events
+        // 4. Events, Tracks, and Votes
+        // Create some tracks first
+        const mockTracks = [];
+        for (let t = 1; t <= 20; t++) {
+            const trackId = uuidv4();
+            await client.query(`
+                INSERT INTO tracks (id, external_id, provider, title, artist, album, cover_url, duration_ms, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            `, [
+                trackId, `ext-${t}`, 'spotify', `Hit Song ${t}`, `Artist ${t}`, `Album ${t}`, `http://example.com/cover${t}.jpg`, 180000 + (t * 1000)
+            ]);
+            mockTracks.push(trackId);
+        }
+        console.log('Created 20 mock tracks.');
+
         for (const user of createdUsers) {
+            // Give them some generic preferences
+            const pref = JSON.stringify({ genres: ["rock", "pop", "jazz"], discovery_mode: true });
+            await client.query("UPDATE users SET music_preferences = $1 WHERE id = $2", [pref, user.id]);
+
             for (let p = 1; p <= 3; p++) {
                 const eventId = uuidv4();
                 
@@ -103,8 +121,25 @@ async function seed() {
                     INSERT INTO event_invites (id, event_id, user_id, role, created_at)
                     VALUES ($1, $2, $3, 'GUEST', NOW())
                 `, [uuidv4(), eventId, anasId]);
+
+                // Add some tracks to this event_playlist
+                for (let t = 0; t < 5; t++) {
+                    const entryId = uuidv4();
+                    const trackId = mockTracks[Math.floor(Math.random() * mockTracks.length)];
+                    
+                    await client.query(`
+                        INSERT INTO event_playlist (id, event_id, track_id, suggested_by, vote_count, position, status, suggested_at)
+                        VALUES ($1, $2, $3, $4, 1, $5, 'PENDING', NOW())
+                    `, [entryId, eventId, trackId, user.id, t]);
+
+                    // Add a default vote by Anas to make it active
+                    await client.query(`
+                        INSERT INTO votes (id, playlist_entry_id, user_id, value, voted_at)
+                        VALUES ($1, $2, $3, 1, NOW())
+                    `, [uuidv4(), entryId, anasId]);
+                }
             }
-            console.log(`Created events for ${user.email} and invited Anas.`);
+            console.log(`Created events, added tracks, mapped preferences & votes for ${user.email}.`);
         }
 
         console.log('Database seeded successfully!');
