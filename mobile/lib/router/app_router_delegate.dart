@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
+import '../screens/splash_screen.dart';
 import '../screens/auth_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/signup_screen.dart';
@@ -97,19 +98,29 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
   }
 
   List<Page<dynamic>> _buildPages() {
+    // ── Loading → SplashScreen (Checks session) ───────────────────────
+    if (authProvider.authStatus == AuthStatus.loading) {
+      return const [
+        MaterialPage(
+          key: ValueKey('splash'),
+          child: SplashScreen(),
+        ),
+      ];
+    }
+
     // ── Authenticated → Home (no auth screens in stack) ───────────────
     if (authProvider.authStatus == AuthStatus.authenticated) {
       // Reset sub-route so re-logout starts at landing.
       _authSubRoute = AuthSubRoute.landing;
-      return [
-        const MaterialPage(
+      return const [
+        MaterialPage(
           key: ValueKey('home'),
           child: HomeScreen(),
         ),
       ];
     }
 
-    // Both Loading & Unauthenticated share the base auth screen.
+    // ── Unauthenticated → Auth Stack ──────────────────────────────────
     return [
       // Base: Auth landing screen (always in stack)
       MaterialPage(

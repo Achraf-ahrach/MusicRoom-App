@@ -212,6 +212,29 @@ class AuthService {
     return body;
   }
 
+  /// POST /refresh
+  /// Uses the refresh token to get a new access token.
+  /// Returns the new tokens.
+  /// Throws [AuthException] on failure.
+  Future<Map<String, dynamic>> refreshToken({
+    required String refreshToken,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_effectiveBaseUrl$_authPath/refresh'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'refreshToken': refreshToken}),
+    );
+
+    final decoded = _decodeBody(response.body);
+    final body = _toMap(decoded);
+
+    if (response.statusCode != 200) {
+      throw AuthException(_extractErrorMessage(decoded, 'Token refresh failed'));
+    }
+
+    return body;
+  }
+
   dynamic _decodeBody(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
     try {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
+import 'all_playlists_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -24,6 +26,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  void _showMoreOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Small drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[600],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.share, color: Colors.white),
+                title: const Text('Share Profile', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profile link copied to clipboard!'), backgroundColor: Colors.green),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings, color: Colors.white),
+                title: const Text('Settings & Privacy', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Placeholder for future settings screen
+                },
+              ),
+              const Divider(color: Colors.grey),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.pop(context); // Close bottom sheet
+                  Navigator.pop(context); // Pop profile screen back to home
+                  Provider.of<AuthProvider>(context, listen: false).logout();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileProvider = Provider.of<UserProfileProvider>(context);
@@ -41,9 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_horiz, color: Colors.white),
-            onPressed: () {
-              // Handle action
-            },
+            onPressed: () => _showMoreOptions(context),
           ),
         ],
       ),
@@ -92,7 +149,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 16),
                             // Edit Profile button
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const EditProfileScreen(),
+                                  ),
+                                );
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.grey[800],
                                 foregroundColor: Colors.white,
@@ -113,9 +177,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildStatColumn('23', 'PLAYLISTS'),
-                            _buildStatColumn((profile?.friendsInfo.length ?? 0).toString(), 'FOLLOWERS'),
-                            _buildStatColumn('43', 'FOLLOWING'),
+                            _buildStatColumn('${profileProvider.playlistsCount}', 'PLAYLISTS'),
+                            _buildStatColumn('${profileProvider.friendsCount}', 'FOLLOWERS'),
+                            _buildStatColumn('${profileProvider.friendsCount}', 'FOLLOWING'),
                           ],
                         ),
                       ),
@@ -142,19 +206,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 16),
-                            _buildPlaylistItem('Shazam', '7 likes', Icons.music_note),
-                            _buildPlaylistItem('Roadtrip', '4 likes', Icons.directions_car),
-                            _buildPlaylistItem('Study', '5 likes', Icons.book),
-                            const SizedBox(height: 16),
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'See all playlists',
-                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            if (profileProvider.userEvents.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                child: Center(
+                                  child: Text(
+                                    'No playlists created yet.',
+                                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                  ),
                                 ),
-                                Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
-                              ],
+                              )
+                            else
+                              ...profileProvider.userEvents.take(3).map((event) {
+                                final title = event['name'] ?? 'Unknown';
+                                final trackCount = event['trackCount'] ?? 0;
+                                return _buildPlaylistItem(title, '$trackCount tracks', Icons.music_note);
+                              }).toList(),
+                              
+                            const SizedBox(height: 16),
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AllPlaylistsScreen(
+                                      playlists: profileProvider.userEvents,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'See all playlists',
+                                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                    Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),

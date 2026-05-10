@@ -367,6 +367,47 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Refresh Token ─────────────────────────────────────────────────────
+  /// Uses the stored refresh token to get a new access token.
+  /// If it fails, logs the user out.
+  Future<bool> refreshTokens() async {
+    if (_currentUser == null || _currentUser!.refreshToken == null) {
+      await logout();
+      return false;
+    }
+
+    try {
+      final response = await _authService.refreshToken(
+        refreshToken: _currentUser!.refreshToken!,
+      );
+
+      final newAccessToken = response['accessToken'];
+      final newRefreshToken = response['refreshToken'] ?? _currentUser!.refreshToken;
+
+      if (newAccessToken != null) {
+        // Update current user model
+        final updatedJson = _currentUser!.toJson();
+        updatedJson['accessToken'] = newAccessToken;
+        updatedJson['refreshToken'] = newRefreshToken;
+        
+        _currentUser = UserModel.fromJson(updatedJson);
+
+        // Persist new session
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_userKey, _currentUser!.encode());
+        
+        notifyListeners();
+        return true;
+      } else {
+        throw const AuthException('No access token in response');
+      }
+    } catch (e) {
+      debugPrint('Token refresh failed: $e');
+      await logout(); // Force re-login if refresh token is expired or invalid
+      return false;
+    }
+  }
+
   /// Clears any displayed error message.
   void clearError() {
     _errorMessage = null;
