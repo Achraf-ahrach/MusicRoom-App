@@ -1,0 +1,9 @@
+package com.musicroom.musicroom.dto.websocket;
+
+public enum PlaylistMessageType {
+    TRACK_ADDED,
+    TRACK_REMOVED,
+    TRACK_MOVED,
+    CONFLICT,
+    PLAYLIST_RELOADED
+}
