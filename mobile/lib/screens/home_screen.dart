@@ -8,15 +8,17 @@ import '../widgets/music_room_card.dart';
 import '../widgets/music_card.dart';
 import 'profile/profile_screen.dart';
 import '../screens/search_screen.dart';
+import '../screens/library_screen.dart';
+import '../screens/create_room_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Map<String, String>> _recentPlaylists = [
@@ -37,9 +39,15 @@ class _HomeScreenState extends State<HomeScreen> {
   late final List<Widget> _screens = [
     const _HomeContent(),
     const SearchScreen(),
-    const Center(child: Text('Your Library', style: TextStyle(color: Colors.white))),
-    const Center(child: Text('Create Room', style: TextStyle(color: Colors.white))),
+    const LibraryScreen(),
+    const CreateRoomScreen(),
   ];
+
+  void setSelectedIndex(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +124,7 @@ class _HomeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_HomeScreenState>()!;
+    final state = context.findAncestorStateOfType<HomeScreenState>()!;
     
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {

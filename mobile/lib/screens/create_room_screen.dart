@@ -1,0 +1,180 @@
+import 'package:flutter/material.dart';
+import '../config/app_theme.dart';
+
+class CreateRoomScreen extends StatefulWidget {
+  const CreateRoomScreen({super.key});
+
+  @override
+  State<CreateRoomScreen> createState() => _CreateRoomScreenState();
+}
+
+class _CreateRoomScreenState extends State<CreateRoomScreen> {
+  bool _isPrivate = false;
+  bool _allowGuests = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Create Music Room',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Room Header ──────────────────────────────────────────────────
+            Center(
+              child: Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_a_photo_rounded, color: Colors.white54, size: 40),
+                    SizedBox(height: 12),
+                    Text(
+                      'Add Cover Image',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+
+            // ── Room Name ────────────────────────────────────────────────────
+            const Text(
+              'Room Name',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildTextField('Give your room a name...'),
+            const SizedBox(height: 24),
+
+            // ── Room Description ─────────────────────────────────────────────
+            const Text(
+              'Description',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildTextField('What should people expect?', maxLines: 3),
+            const SizedBox(height: 32),
+
+            // ── Toggles ──────────────────────────────────────────────────────
+            _buildToggle(
+              'Private Room',
+              'Only people you invite can join',
+              _isPrivate,
+              (val) => setState(() => _isPrivate = val),
+            ),
+            const SizedBox(height: 16),
+            _buildToggle(
+              'Allow Guest Control',
+              'Guests can add and skip songs',
+              _allowGuests,
+              (val) => setState(() => _allowGuests = val),
+            ),
+            const SizedBox(height: 48),
+
+            // ── Create Button ────────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  // TODO: Implement creation logic
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Room created successfully!')),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Create Room',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(String hint, {int maxLines = 1}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: TextField(
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Colors.white24),
+          contentPadding: const EdgeInsets.all(16),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggle(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        Switch.adaptive(
+          value: value,
+          onChanged: onChanged,
+          activeColor: AppTheme.accent,
+        ),
+      ],
+    );
+  }
+}
