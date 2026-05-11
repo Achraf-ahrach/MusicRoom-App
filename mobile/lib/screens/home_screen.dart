@@ -2,111 +2,78 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/section_header.dart';
+import '../widgets/playlist_grid_card.dart';
+import '../widgets/music_room_card.dart';
+import '../widgets/music_card.dart';
 import 'profile/profile_screen.dart';
 
-/// Home screen — simple placeholder that shows the user's name
-/// and a logout button. Displayed when authenticated.
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+
+  final List<Map<String, String>> _recentPlaylists = [
+    {'title': 'Chill Lofi Beats', 'image': 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=200&h=200&fit=crop'},
+    {'title': '80s Rock Classics', 'image': 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=200&h=200&fit=crop'},
+    {'title': 'Gym Motivation', 'image': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200&h=200&fit=crop'},
+    {'title': 'Top Hits 2026', 'image': 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=200&h=200&fit=crop'},
+    {'title': 'Jazz & Blues', 'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop'},
+    {'title': 'Podcast: Tech', 'image': 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=200&h=200&fit=crop'},
+  ];
+
+  final List<Map<String, dynamic>> _activeRooms = [
+    {'title': 'Morning Coffee', 'image': 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=400&fit=crop', 'isLive': true},
+    {'title': 'Study Session', 'image': 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&h=400&fit=crop', 'isLive': true},
+    {'title': 'Late Night Jazz', 'image': 'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=400&h=400&fit=crop', 'isLive': true},
+  ];
+
+  @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: _buildBody(),
+      bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_selectedIndex != 0) {
+      return Center(
+        child: Text(
+          'Tab ${_selectedIndex + 1} Content',
+          style: const TextStyle(color: Colors.white, fontSize: 18),
+        ),
+      );
+    }
+
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final userName = auth.currentUser?.fullName ?? 'User';
 
-        return Scaffold(
-          backgroundColor: AppTheme.background,
-          body: Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF1A0A2E),
-                  AppTheme.background,
-                ],
-                stops: [0.0, 0.4],
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(flex: 2),
-
-                    // ── Avatar placeholder ─────────────────────────────────
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [AppTheme.accent, Color(0xFF7B1FCC)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.accent.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          _getInitials(userName),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // ── Welcome text ───────────────────────────────────────
-                    Text(
-                      'Welcome,',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$userName!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Your music room is ready',
-                      style: TextStyle(
-                        color: AppTheme.textMuted,
-                        fontSize: 14,
-                      ),
-                    ),
-
-                    const Spacer(flex: 3),
-
-                    // ── Profile button ──────────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // ── Top Header ──────────────────────────────────────────────────
+            SliverAppBar(
+              floating: true,
+              pinned: false,
+              backgroundColor: AppTheme.background,
+              expandedHeight: 80,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -114,50 +81,161 @@ class HomeScreen extends StatelessWidget {
                             ),
                           );
                         },
-                        icon: const Icon(Icons.person, size: 20),
-                        label: const Text('View Profile'),
-                        style: ElevatedButton.styleFrom(
+                        child: CircleAvatar(
+                          radius: 18,
                           backgroundColor: AppTheme.accent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                          child: Text(
+                            _getInitials(userName),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
-                    // ── Logout button ──────────────────────────────────────
+            // ── Recent Items Grid ──────────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 3.2,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = _recentPlaylists[index];
+                    return PlaylistGridCard(
+                      title: item['title']!,
+                      imageUrl: item['image'],
+                    );
+                  },
+                  childCount: _recentPlaylists.length,
+                ),
+              ),
+            ),
+
+            // ── Active Music Rooms ──────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Active Music Rooms'),
+                    const SizedBox(height: 16),
                     SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () => auth.logout(),
-                        icon: const Icon(Icons.logout_rounded, size: 20),
-                        label: const Text('Log out'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textSecondary,
-                          side: BorderSide(
-                            color: AppTheme.textMuted.withValues(alpha: 0.5),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
+                      height: 220,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _activeRooms.length,
+                        itemBuilder: (context, index) {
+                          final room = _activeRooms[index];
+                          return MusicRoomCard(
+                            title: room['title'],
+                            imageUrl: room['image'],
+                            isLive: room['isLive'],
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(height: 32),
                   ],
                 ),
               ),
             ),
-          ),
+
+            // ── Made for you ────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Made for you'),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: 4,
+                        itemBuilder: (context, index) {
+                          return MusicCard(
+                            title: 'Mix ${index + 1}',
+                            subtitle: 'Based on your recent listening',
+                            imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop&q=80&sig=$index',
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  /// Extracts initials from a full name (e.g. "John Doe" → "JD").
+  Widget _buildBottomNavBar() {
+    return Theme(
+      data: ThemeData(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.black.withValues(alpha: 0.95),
+        selectedItemColor: Colors.white,
+        unselectedItemColor: AppTheme.textMuted,
+        selectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+        unselectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.home_filled, size: 28),
+            ),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.search_rounded, size: 28),
+            ),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.library_music_rounded, size: 28),
+            ),
+            label: 'Your Library',
+          ),
+          BottomNavigationBarItem(
+            icon: Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.add_box_rounded, size: 28),
+            ),
+            label: 'Create',
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getInitials(String name) {
     final parts = name.trim().split(' ');
     if (parts.length >= 2) {
