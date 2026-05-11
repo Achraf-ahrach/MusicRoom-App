@@ -41,39 +41,46 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
 
   // ── Public navigation methods (called from screens) ───────────────────
   void navigateToLogin() {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.login;
     notifyListeners();
   }
 
   void navigateToSignup() {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.signup;
     notifyListeners();
   }
 
   void navigateToAuth() {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.landing;
     _otpEmail = null;
     notifyListeners();
   }
 
   void navigateToOtp(String email) {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.otp;
     _otpEmail = email;
     notifyListeners();
   }
 
   void navigateToForgotPassword() {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.forgotPassword;
     notifyListeners();
   }
 
   void navigateToResetOtp(String email) {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.resetOtp;
     _resetEmail = email;
     notifyListeners();
   }
 
   void navigateToNewPassword(String email, String otp) {
+    authProvider.clearError();
     _authSubRoute = AuthSubRoute.newPassword;
     _resetEmail = email;
     _resetOtp = otp;
@@ -90,6 +97,7 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
         // When a page is removed (popped), reset to auth landing
         // if we were showing login or signup.
         if (_authSubRoute != AuthSubRoute.landing) {
+          authProvider.clearError();
           _authSubRoute = AuthSubRoute.landing;
           notifyListeners();
         }

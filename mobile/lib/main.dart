@@ -26,7 +26,10 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => UserProfileProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, UserProfileProvider>(
+          create: (_) => UserProfileProvider(),
+          update: (_, auth, userProfile) => userProfile!..updateAuthProvider(auth),
+        ),
       ],
       child: const MusicRoomApp(),
     ),

@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile_model.dart';
 import '../services/user_service.dart';
+import 'auth_provider.dart';
 
 class UserProfileProvider with ChangeNotifier {
   final UserService _userService = UserService();
+  AuthProvider? _authProvider;
+
+  void updateAuthProvider(AuthProvider auth) {
+    _authProvider = auth;
+  }
 
   UserProfileModel? _profile;
   List<Map<String, dynamic>> _userEvents = [];
@@ -18,22 +24,43 @@ class UserProfileProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  Future<T> _withAuthRetry<T>(Future<T> Function(String token) action) async {
+    final auth = _authProvider;
+    if (auth == null) {
+      throw Exception('AuthProvider not initialized');
+    }
+    String currentToken = auth.currentUser?.accessToken ?? '';
+    try {
+      return await action(currentToken);
+    } catch (e) {
+      if (e.toString().contains('403') || e.toString().contains('401')) {
+        final success = await auth.refreshTokens();
+        if (success) {
+          currentToken = auth.currentUser?.accessToken ?? '';
+          return await action(currentToken);
+        }
+      }
+      rethrow;
+    }
+  }
+
   Future<void> fetchProfile(String token) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _profile = await _userService.getCurrentUserProfile(token);
-      if (_profile != null && _profile!.id.isNotEmpty) {
-        // Fetch additional stats in parallel
-        final results = await Future.wait([
-          _userService.getUserEvents(token, _profile!.id),
-          _userService.getUserFriendsCount(token),
-        ]);
-        _userEvents = results[0] as List<Map<String, dynamic>>;
-        _friendsCount = results[1] as int;
-      }
+      await _withAuthRetry((activeToken) async {
+        _profile = await _userService.getCurrentUserProfile(activeToken);
+        if (_profile != null && _profile!.id.isNotEmpty) {
+          final results = await Future.wait([
+            _userService.getUserEvents(activeToken, _profile!.id),
+            _userService.getUserFriendsCount(activeToken),
+          ]);
+          _userEvents = results[0] as List<Map<String, dynamic>>;
+          _friendsCount = results[1] as int;
+        }
+      });
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -57,18 +84,15 @@ class UserProfileProvider with ChangeNotifier {
     try {
       final updateData = <String, dynamic>{
         'displayName': newDisplayName,
-        if (newAvatarUrl != null && newAvatarUrl.isNotEmpty)
-          'avatarUrl': newAvatarUrl,
+        if (newAvatarUrl != null && newAvatarUrl.isNotEmpty) 'avatarUrl': newAvatarUrl,
         if (publicInfo != null) 'publicInfo': publicInfo,
         if (privateInfo != null) 'privateInfo': privateInfo,
         if (friendsInfo != null) 'friendsInfo': friendsInfo,
       };
 
-      final updatedProfile = await _userService.updateUserProfile(
-        token,
-        updateData,
-      );
-      _profile = updatedProfile;
+      await _withAuthRetry((activeToken) async {
+        _profile = await _userService.updateUserProfile(activeToken, updateData);
+      });
       _isLoading = false;
       notifyListeners();
       return true;
@@ -81,7 +105,7 @@ class UserProfileProvider with ChangeNotifier {
   }
 
   Future<bool> updatePreferences(
-    String token,
+    String token, // Original token Param is kept so signature matches UI calls, but we ignore it inside.
     Map<String, dynamic> newPreferences,
   ) async {
     _isLoading = true;
@@ -89,11 +113,9 @@ class UserProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final updatedProfile = await _userService.updateUserPreferences(
-        token,
-        newPreferences,
-      );
-      _profile = updatedProfile;
+      await _withAuthRetry((activeToken) async {
+        _profile = await _userService.updateUserPreferences(activeToken, newPreferences);
+      });
       _isLoading = false;
       notifyListeners();
       return true;
