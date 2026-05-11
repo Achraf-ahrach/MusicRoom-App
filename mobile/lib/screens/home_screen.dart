@@ -7,6 +7,7 @@ import '../widgets/playlist_grid_card.dart';
 import '../widgets/music_room_card.dart';
 import '../widgets/music_card.dart';
 import 'profile/profile_screen.dart';
+import '../screens/search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,157 +34,22 @@ class _HomeScreenState extends State<HomeScreen> {
     {'title': 'Late Night Jazz', 'image': 'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=400&h=400&fit=crop', 'isLive': true},
   ];
 
+  late final List<Widget> _screens = [
+    const _HomeContent(),
+    const SearchScreen(),
+    const Center(child: Text('Your Library', style: TextStyle(color: Colors.white))),
+    const Center(child: Text('Create Room', style: TextStyle(color: Colors.white))),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: _buildBody(),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: _buildBottomNavBar(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_selectedIndex != 0) {
-      return Center(
-        child: Text(
-          'Tab ${_selectedIndex + 1} Content',
-          style: const TextStyle(color: Colors.white, fontSize: 18),
-        ),
-      );
-    }
-
-    return Consumer<AuthProvider>(
-      builder: (context, auth, _) {
-        final userName = auth.currentUser?.fullName ?? 'User';
-
-        return CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // ── Top Header ──────────────────────────────────────────────────
-            SliverAppBar(
-              floating: true,
-              pinned: false,
-              backgroundColor: AppTheme.background,
-              expandedHeight: 80,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  alignment: Alignment.bottomLeft,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ProfileScreen(),
-                            ),
-                          );
-                        },
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AppTheme.accent,
-                          child: Text(
-                            _getInitials(userName),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Recent Items Grid ──────────────────────────────────────────
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 3.2,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = _recentPlaylists[index];
-                    return PlaylistGridCard(
-                      title: item['title']!,
-                      imageUrl: item['image'],
-                    );
-                  },
-                  childCount: _recentPlaylists.length,
-                ),
-              ),
-            ),
-
-            // ── Active Music Rooms ──────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionHeader(title: 'Active Music Rooms'),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 220,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _activeRooms.length,
-                        itemBuilder: (context, index) {
-                          final room = _activeRooms[index];
-                          return MusicRoomCard(
-                            title: room['title'],
-                            imageUrl: room['image'],
-                            isLive: room['isLive'],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Made for you ────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionHeader(title: 'Made for you'),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 200,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: 4,
-                        itemBuilder: (context, index) {
-                          return MusicCard(
-                            title: 'Mix ${index + 1}',
-                            subtitle: 'Based on your recent listening',
-                            imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop&q=80&sig=$index',
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -242,5 +108,148 @@ class _HomeScreenState extends State<HomeScreen> {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  }
+}
+
+class _HomeContent extends StatelessWidget {
+  const _HomeContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.findAncestorStateOfType<_HomeScreenState>()!;
+    
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        final userName = auth.currentUser?.fullName ?? 'User';
+
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // ── Top Header ──────────────────────────────────────────────────
+            SliverAppBar(
+              floating: true,
+              pinned: false,
+              backgroundColor: AppTheme.background,
+              expandedHeight: 80,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileScreen(),
+                            ),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppTheme.accent,
+                          child: Text(
+                            state._getInitials(userName),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Recent Items Grid ──────────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 3.2,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = state._recentPlaylists[index];
+                    return PlaylistGridCard(
+                      title: item['title']!,
+                      imageUrl: item['image'],
+                    );
+                  },
+                  childCount: state._recentPlaylists.length,
+                ),
+              ),
+            ),
+
+            // ── Active Music Rooms ──────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Active Music Rooms'),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 220,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: state._activeRooms.length,
+                        itemBuilder: (context, index) {
+                          final room = state._activeRooms[index];
+                          return MusicRoomCard(
+                            title: room['title'],
+                            imageUrl: room['image'],
+                            isLive: room['isLive'],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Made for you ────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Made for you'),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: 4,
+                        itemBuilder: (context, index) {
+                          return MusicCard(
+                            title: 'Mix ${index + 1}',
+                            subtitle: 'Based on your recent listening',
+                            imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop&q=80&sig=$index',
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
