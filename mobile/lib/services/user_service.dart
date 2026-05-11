@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/user_profile_model.dart';
 
 class UserService {
-  static const String _effectiveBaseUrl = "https://anisa-phenetic-predictively.ngrok-free.dev";
+  static const String _effectiveBaseUrl =
+      "https://anisa-phenetic-predictively.ngrok-free.dev";
   static const String _usersPath = '/api/users';
   static const String _eventsPath = '/api/events';
   static const String _friendshipsPath = '/api/friendships';
@@ -15,7 +16,8 @@ class UserService {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
-        'ngrok-skip-browser-warning': 'true',// cureent ngrok works without this header, but keep it here in case of future issues
+        'ngrok-skip-browser-warning':
+            'true', // cureent ngrok works without this header, but keep it here in case of future issues
       },
     );
 
@@ -28,7 +30,10 @@ class UserService {
   }
 
   /// Fetches all events and returns the list belonging to this user (Playlists equivalent)
-  Future<List<Map<String, dynamic>>> getUserEvents(String token, String currentUserId) async {
+  Future<List<Map<String, dynamic>>> getUserEvents(
+    String token,
+    String currentUserId,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('$_effectiveBaseUrl$_eventsPath'),
@@ -41,7 +46,9 @@ class UserService {
 
       if (response.statusCode == 200) {
         final List<dynamic> allEvents = jsonDecode(response.body);
-        final filteredEvents = allEvents.where((e) => e['ownerId'] == currentUserId).toList();
+        final filteredEvents = allEvents
+            .where((e) => e['ownerId'] == currentUserId)
+            .toList();
         return filteredEvents.cast<Map<String, dynamic>>();
       }
     } catch (_) {}
@@ -49,7 +56,10 @@ class UserService {
   }
 
   /// Updates the user's profile
-  Future<UserProfileModel> updateUserProfile(String token, Map<String, dynamic> updateData) async {
+  Future<UserProfileModel> updateUserProfile(
+    String token,
+    Map<String, dynamic> updateData,
+  ) async {
     final response = await http.put(
       Uri.parse('$_effectiveBaseUrl$_usersPath/me'),
       headers: {
@@ -69,7 +79,10 @@ class UserService {
   }
 
   /// Updates the user's music preferences
-  Future<UserProfileModel> updateUserPreferences(String token, Map<String, dynamic> preferencesData) async {
+  Future<UserProfileModel> updateUserPreferences(
+    String token,
+    Map<String, dynamic> preferencesData,
+  ) async {
     final response = await http.put(
       Uri.parse('$_effectiveBaseUrl$_usersPath/me/preferences'),
       headers: {
@@ -96,7 +109,8 @@ class UserService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true', //current ngrok works without this header, but keep it here in case of future issues
+          'ngrok-skip-browser-warning':
+              'true', //current ngrok works without this header, but keep it here in case of future issues
         },
       );
 

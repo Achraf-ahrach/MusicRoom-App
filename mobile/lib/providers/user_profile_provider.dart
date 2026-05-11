@@ -4,7 +4,7 @@ import '../services/user_service.dart';
 
 class UserProfileProvider with ChangeNotifier {
   final UserService _userService = UserService();
-  
+
   UserProfileModel? _profile;
   List<Map<String, dynamic>> _userEvents = [];
   int _friendsCount = 0;
@@ -43,8 +43,8 @@ class UserProfileProvider with ChangeNotifier {
   }
 
   Future<bool> updateProfile(
-    String token, 
-    String newDisplayName, 
+    String token,
+    String newDisplayName,
     String? newAvatarUrl, {
     Map<String, dynamic>? publicInfo,
     Map<String, dynamic>? privateInfo,
@@ -57,13 +57,17 @@ class UserProfileProvider with ChangeNotifier {
     try {
       final updateData = <String, dynamic>{
         'displayName': newDisplayName,
-        if (newAvatarUrl != null && newAvatarUrl.isNotEmpty) 'avatarUrl': newAvatarUrl,
+        if (newAvatarUrl != null && newAvatarUrl.isNotEmpty)
+          'avatarUrl': newAvatarUrl,
         if (publicInfo != null) 'publicInfo': publicInfo,
         if (privateInfo != null) 'privateInfo': privateInfo,
         if (friendsInfo != null) 'friendsInfo': friendsInfo,
       };
 
-      final updatedProfile = await _userService.updateUserProfile(token, updateData);
+      final updatedProfile = await _userService.updateUserProfile(
+        token,
+        updateData,
+      );
       _profile = updatedProfile;
       _isLoading = false;
       notifyListeners();
@@ -76,13 +80,19 @@ class UserProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updatePreferences(String token, Map<String, dynamic> newPreferences) async {
+  Future<bool> updatePreferences(
+    String token,
+    Map<String, dynamic> newPreferences,
+  ) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final updatedProfile = await _userService.updateUserPreferences(token, newPreferences);
+      final updatedProfile = await _userService.updateUserPreferences(
+        token,
+        newPreferences,
+      );
       _profile = updatedProfile;
       _isLoading = false;
       notifyListeners();
