@@ -1,0 +1,288 @@
+{
+  "info": {
+    "name": "MusicRoom Delegation Tests",
+    "description": "Complete test suite for Users, Playlists, and Delegations",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Create User Alice (Owner)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"password123\",\n  \"displayname\": \"Alice Owner\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/auth/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "register"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create User Bob (Delegate)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"bob@example.com\",\n  \"password\": \"password123\",\n  \"displayname\": \"Bob Delegate\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/auth/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "register"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Create Playlist (Alice)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"My Summer Playlist\",\n  \"description\": \"Summer hits 2026\",\n  \"visibility\": \"public\",\n  \"licenseType\": \"open\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/playlists",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "playlists"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Grant Delegation (Alice -> Bob) FULL Access",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"delegateId\": \"{{bob_id}}\",\n  \"resourceId\": \"{{playlist_id}}\",\n  \"resourceType\": \"PLAYLIST\",\n  \"permissionLevel\": \"FULL\",\n  \"expiresAt\": \"2026-12-31T23:59:59\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/delegations?ownerId={{alice_id}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations"],
+          "query": [
+            {
+              "key": "ownerId",
+              "value": "{{alice_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. Check if Bob has Access to Playlist",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/delegations/check-access?userId={{bob_id}}&resourceId={{playlist_id}}&resourceType=PLAYLIST",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations", "check-access"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{bob_id}}"
+            },
+            {
+              "key": "resourceId",
+              "value": "{{playlist_id}}"
+            },
+            {
+              "key": "resourceType",
+              "value": "PLAYLIST"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Get All Delegations for Playlist",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/delegations?resourceType=PLAYLIST&resourceId={{playlist_id}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations"],
+          "query": [
+            {
+              "key": "resourceType",
+              "value": "PLAYLIST"
+            },
+            {
+              "key": "resourceId",
+              "value": "{{playlist_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Get Bob's Delegations (What he received)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/delegations/my-delegations?userId={{bob_id}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations", "my-delegations"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{bob_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. Update Permission (FULL -> PLAY_PAUSE)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"permissionLevel\": \"PLAY_PAUSE\",\n  \"active\": true\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/delegations/{{delegation_id}}?ownerId={{alice_id}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations", "{{delegation_id}}"],
+          "query": [
+            {
+              "key": "ownerId",
+              "value": "{{alice_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "9. Revoke Delegation (Delete)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/delegations/{{delegation_id}}?ownerId={{alice_id}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations", "{{delegation_id}}"],
+          "query": [
+            {
+              "key": "ownerId",
+              "value": "{{alice_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "10. Verify Bob Lost Access",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/delegations/check-access?userId={{bob_id}}&resourceId={{playlist_id}}&resourceType=PLAYLIST",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "delegations", "check-access"],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{bob_id}}"
+            },
+            {
+              "key": "resourceId",
+              "value": "{{playlist_id}}"
+            },
+            {
+              "key": "resourceType",
+              "value": "PLAYLIST"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "alice_id",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string"
+    },
+    {
+      "key": "bob_id",
+      "value": "550e8400-e29b-41d4-a716-446655440001",
+      "type": "string"
+    },
+    {
+      "key": "playlist_id",
+      "value": "660e8400-e29b-41d4-a716-446655440000",
+      "type": "string"
+    },
+    {
+      "key": "delegation_id",
+      "value": "770e8400-e29b-41d4-a716-446655440000",
+      "type": "string"
+    }
+  ]
+}
