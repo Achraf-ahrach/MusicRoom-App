@@ -10,6 +10,7 @@ import 'profile/profile_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/library_screen.dart';
 import '../screens/create_room_screen.dart';
+import '../widgets/create_menu_bottom_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,13 @@ class HomeScreen extends StatefulWidget {
 
 class HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool _isCreateMenuOpen = false;
+
+  void toggleCreateMenu() {
+    setState(() {
+      _isCreateMenuOpen = !_isCreateMenuOpen;
+    });
+  }
 
   final List<Map<String, String>> _recentPlaylists = [
     {'title': 'Chill Lofi Beats', 'image': 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=200&h=200&fit=crop'},
@@ -53,9 +61,39 @@ class HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _screens,
+          ),
+          // Dimmed background
+          AnimatedOpacity(
+            opacity: _isCreateMenuOpen ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isCreateMenuOpen
+                ? GestureDetector(
+                    onTap: toggleCreateMenu,
+                    child: Container(
+                      color: Colors.black54,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          // Menu Overlay
+          AnimatedSlide(
+            offset: _isCreateMenuOpen ? Offset.zero : const Offset(0, 1),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: _isCreateMenuOpen 
+                ? CreateMenuOverlay(onClose: toggleCreateMenu)
+                : const SizedBox.shrink(),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
     );
@@ -69,29 +107,38 @@ class HomeScreenState extends State<HomeScreen> {
       ),
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
+        onTap: (index) {
+          if (index == 3) {
+            toggleCreateMenu();
+          } else {
+            setState(() {
+              _selectedIndex = index;
+              _isCreateMenuOpen = false;
+            });
+          }
+        },
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.black.withValues(alpha: 0.95),
         selectedItemColor: Colors.white,
         unselectedItemColor: AppTheme.textMuted,
         selectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
         unselectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(bottom: 4),
               child: Icon(Icons.home_filled, size: 28),
             ),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(bottom: 4),
               child: Icon(Icons.search_rounded, size: 28),
             ),
             label: 'Search',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Padding(
               padding: EdgeInsets.only(bottom: 4),
               child: Icon(Icons.library_music_rounded, size: 28),
@@ -100,8 +147,11 @@ class HomeScreenState extends State<HomeScreen> {
           ),
           BottomNavigationBarItem(
             icon: Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.add_box_rounded, size: 28),
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Icon(
+                _isCreateMenuOpen ? Icons.close_rounded : Icons.add_box_rounded,
+                size: 28,
+              ),
             ),
             label: 'Create',
           ),

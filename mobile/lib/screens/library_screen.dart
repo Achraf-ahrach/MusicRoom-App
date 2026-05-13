@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/library_list_item.dart';
 import 'package:provider/provider.dart';
 import 'home_screen.dart';
+import '../widgets/create_menu_bottom_sheet.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -205,7 +206,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         const SizedBox(width: 16),
         IconButton(
           onPressed: () {
-            context.findAncestorStateOfType<HomeScreenState>()?.setSelectedIndex(3);
+            context.findAncestorStateOfType<HomeScreenState>()?.toggleCreateMenu();
           },
           icon: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
           padding: EdgeInsets.zero,

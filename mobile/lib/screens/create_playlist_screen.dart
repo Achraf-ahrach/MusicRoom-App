@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 
-class CreateRoomScreen extends StatefulWidget {
-  const CreateRoomScreen({super.key});
+class CreatePlaylistScreen extends StatefulWidget {
+  const CreatePlaylistScreen({super.key});
 
   @override
-  State<CreateRoomScreen> createState() => _CreateRoomScreenState();
+  State<CreatePlaylistScreen> createState() => _CreatePlaylistScreenState();
 }
 
-class _CreateRoomScreenState extends State<CreateRoomScreen> {
+class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
   bool _isPrivate = false;
-  bool _allowGuests = true;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +19,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Create Event',
+          'Create Playlist',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -28,6 +27,10 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
           ),
         ),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -35,7 +38,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Room Header ──────────────────────────────────────────────────
+            // ── Playlist Header ──────────────────────────────────────────────
             Center(
               child: Container(
                 width: 160,
@@ -66,27 +69,28 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
             ),
             const SizedBox(height: 40),
 
-            // ── Room Name ────────────────────────────────────────────────────
+            // ── Playlist Name ────────────────────────────────────────────────
             const Text(
-              'Event Name',
+              'Playlist Name',
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _buildTextField('Give your event a name...'),
+            _buildTextField('Give your playlist a name...'),
             const SizedBox(height: 24),
 
-            // ── Room Description ─────────────────────────────────────────────
+            // ── Description ──────────────────────────────────────────────────
             const Text(
               'Description',
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _buildTextField('What should people expect?', maxLines: 3),
+            _buildTextField('What\'s this playlist about?', maxLines: 3),
             const SizedBox(height: 32),
 
+            // ── Toggles ──────────────────────────────────────────────────────
             _buildToggle(
-              'Private Event',
-              'Only people you invite can join',
+              'Private Playlist',
+              'Only you can see this playlist',
               _isPrivate,
               (val) => setState(() => _isPrivate = val),
             ),
@@ -100,8 +104,9 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                 onPressed: () {
                   // TODO: Implement creation logic
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Event created successfully!')),
+                    const SnackBar(content: Text('Playlist created successfully!')),
                   );
+                  Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.accent,
@@ -112,7 +117,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                   elevation: 0,
                 ),
                 child: const Text(
-                  'Create Event',
+                  'Create Playlist',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
