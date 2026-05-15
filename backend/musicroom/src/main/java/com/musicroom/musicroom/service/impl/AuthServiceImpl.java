@@ -14,12 +14,14 @@ import com.musicroom.musicroom.repository.UserRepository;
 import com.musicroom.musicroom.security.JwtTokenProvider;
 import com.musicroom.musicroom.service.AuthService;
 import com.musicroom.musicroom.service.EmailService;
+import com.musicroom.musicroom.service.LogService;
+import com.musicroom.musicroom.service.DeviceService;
 import com.musicroom.musicroom.service.RefreshTokenService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -27,9 +29,28 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
+    private final LogService logService;
+    private final DeviceService deviceService;
+
+    /**
+     * Helper method to extract real client IP address
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty()) {
+            return xRealIp;
+        }
+        
+        return request.getRemoteAddr();
+    }
 
     @Override
-        public AuthResponse register(RegisterRequestDTO request) {
+    public AuthResponse register(RegisterRequestDTO request, HttpServletRequest httpRequest) {
         try {
                 if (userRepository.existsByEmail(request.email())) {
                 throw new RuntimeException("Email already exists");
@@ -50,6 +71,11 @@ public class AuthServiceImpl implements AuthService {
 
                 User savedUser = userRepository.save(user);
                 emailService.sendVerificationEmail(request.email(), verificationCode);
+                
+                String ipAddress = getClientIpAddress(httpRequest);
+                
+                // Log user registration
+                logService.logUserRegister(savedUser.getId(), request.email(), "web", ipAddress);
                 
                 String accessToken = jwtTokenProvider.generateAccessToken(
                         savedUser.getEmail(),
@@ -77,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse login(LoginRequestDTO request) {
+    public AuthResponse login(LoginRequestDTO request, HttpServletRequest httpRequest) {
 
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
@@ -86,12 +112,27 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid credentials");
         }
         
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        // Register or update device when user logs in
+        deviceService.registerOrUpdateDevice(
+            user.getId(),
+            request.deviceName() != null ? request.deviceName() : "Web Browser",
+            request.platform() != null ? request.platform() : "Web",
+            request.appVersion() != null ? request.appVersion() : "1.0.0",
+            request.pushToken() != null ? request.pushToken() : "",
+            ipAddress
+        );
+        
         String accessToken = jwtTokenProvider.generateAccessToken(
                 user.getEmail(),
                 user.getId().toString()
         );
 
         String refreshToken = refreshTokenService.createRefreshToken(user);
+        
+        // Log user login
+        logService.logUserLogin(user.getId(), request.platform() != null ? request.platform() : "Web", ipAddress);
         
         return new AuthResponse(
                 accessToken,
@@ -136,7 +177,7 @@ public class AuthServiceImpl implements AuthService {
 
     // Generate and send verification code
     @Override
-     public String sendVerificationEmail(SendVerificationEmailDTO request) {
+     public String sendVerificationEmail(SendVerificationEmailDTO request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -149,6 +190,12 @@ public class AuthServiceImpl implements AuthService {
         try {
             // SEND EMAIL
             emailService.sendVerificationEmail(request.email(), verificationCode);
+            
+            String ipAddress = getClientIpAddress(httpRequest);
+            
+            // Log verification email sent
+            logService.saveLog(user.getId(), null, "VERIFICATION_EMAIL_SENT", "web", null, ipAddress,
+                    java.util.Map.of("email", request.email(), "timestamp", java.time.LocalDateTime.now().toString()));
         } catch (Exception e) {
             throw new RuntimeException("Failed to send verification email: " + e.getMessage());
         }
@@ -157,7 +204,7 @@ public class AuthServiceImpl implements AuthService {
 
     // Verify email with code
     @Override
-    public String verifyEmail(VerifyEmailDTO request) {
+    public String verifyEmail(VerifyEmailDTO request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -168,24 +215,36 @@ public class AuthServiceImpl implements AuthService {
         user.setEmailVerified(true);
         user.setVerificationCode(null);
         userRepository.save(user);
+        
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        // Log email verification
+        logService.saveLog(user.getId(), null, "EMAIL_VERIFIED", "web", null, ipAddress, 
+                java.util.Map.of("email", request.email(), "timestamp", java.time.LocalDateTime.now().toString()));
 
         return "Email verified successfully";
     }
 
     @Override
-     public String verifyEmailPassReset(VerifyEmailDTO request) {
+     public String verifyEmailPassReset(VerifyEmailDTO request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getVerificationCode() == null || !user.getVerificationCode().equals(request.verificationCode())) {
             throw new RuntimeException("Invalid verification code");
         }
+        
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        // Log password reset verification
+        logService.saveLog(user.getId(), null, "PASSWORD_RESET_VERIFIED", "web", null, ipAddress,
+                java.util.Map.of("email", request.email(), "timestamp", java.time.LocalDateTime.now().toString()));
 
         return "Code verified successfully";
     }
 
     @Override
-    public String PassResetChange(ResetPassword request) {
+    public String PassResetChange(ResetPassword request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -195,12 +254,18 @@ public class AuthServiceImpl implements AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+        
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        // Log password reset
+        logService.saveLog(user.getId(), null, "PASSWORD_RESET", "web", null, ipAddress,
+                java.util.Map.of("email", request.email(), "timestamp", java.time.LocalDateTime.now().toString()));
 
         return "Password reset successfully";
     }
 
     @Override
-    public AuthResponse googleLogin(String email, String name, String googleId) {
+    public AuthResponse googleLogin(String email, String name, String googleId, HttpServletRequest httpRequest) {
         // Check if user exists
         User user = userRepository.findByEmail(email)
                 .orElseGet(() -> {
@@ -223,6 +288,11 @@ public class AuthServiceImpl implements AuthService {
         );
 
         String refreshToken = refreshTokenService.createRefreshToken(user);
+        
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        // Log Google login
+        logService.logUserLogin(user.getId(), "web", ipAddress);
 
         return new AuthResponse(
                 accessToken,
@@ -241,7 +311,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public AuthResponse googleLoginWithToken(String idToken) {
+    public AuthResponse googleLoginWithToken(String idToken, HttpServletRequest httpRequest) {
         try {
             // Decode the JWT token
             String[] parts = idToken.split("\\.");
@@ -264,45 +334,10 @@ public class AuthServiceImpl implements AuthService {
                 throw new RuntimeException("Invalid token: missing email, name, or googleId");
             }
 
-            // Check if user exists
-            User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> {
-                        // Create new user if doesn't exist
-                        User newUser = User.builder()
-                                .email(email)
-                                .displayName(name)
-                                .authProvider("google")
-                                .providerId(googleId)
-                                .emailVerified(true)
-                                .passwordHash(null)
-                                .build();
-                        return userRepository.save(newUser);
-                    });
+            return googleLogin(email, name, googleId, httpRequest);
 
-            // Generate tokens
-            String accessToken = jwtTokenProvider.generateAccessToken(
-                    user.getEmail(),
-                    user.getId().toString()
-            );
-
-            String refreshToken = refreshTokenService.createRefreshToken(user);
-
-            return new AuthResponse(
-                    accessToken,
-                    refreshToken,
-                    "Bearer",
-                    jwtTokenProvider.getAccessTokenExpiration(),
-                    new RegisterResponseDTO(
-                            user.getId(),
-                            user.getEmail(),
-                            user.getDisplayName(),
-                            user.getAvatarUrl(),
-                            String.valueOf(user.isEmailVerified())
-                    )
-            );
         } catch (Exception e) {
-            throw new RuntimeException("Failed to process Google token: " + e.getMessage());
+            throw new RuntimeException("Google login failed: " + e.getMessage());
         }
     }
-
 }

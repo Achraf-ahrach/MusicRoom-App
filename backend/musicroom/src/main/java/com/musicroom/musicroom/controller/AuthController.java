@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.http.ResponseEntity;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,14 +28,14 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequestDTO request) {
-        AuthResponse response = authService.login(request);
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequestDTO request, HttpServletRequest httpRequest) {
+        AuthResponse response = authService.login(request, httpRequest);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequestDTO request) {
-        AuthResponse response = authService.register(request);
+    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequestDTO request, HttpServletRequest httpRequest) {
+        AuthResponse response = authService.register(request, httpRequest);
         return ResponseEntity.ok(response);
     }
 
@@ -52,26 +53,26 @@ public class AuthController {
     }
 
     @PostMapping("/send-verification-email")
-    public ResponseEntity<String> sendVerificationEmail(@RequestBody SendVerificationEmailDTO request) {
-        String response = authService.sendVerificationEmail(request);
+    public ResponseEntity<String> sendVerificationEmail(@RequestBody SendVerificationEmailDTO request, HttpServletRequest httpRequest) {
+        String response = authService.sendVerificationEmail(request, httpRequest);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/verify-email")
-    public ResponseEntity<String> verifyEmail(@RequestBody VerifyEmailDTO request) {
-        String response = authService.verifyEmail(request);
+    public ResponseEntity<String> verifyEmail(@RequestBody VerifyEmailDTO request, HttpServletRequest httpRequest) {
+        String response = authService.verifyEmail(request, httpRequest);
         return ResponseEntity.ok(response);
     }
     
     @PostMapping("/verify-email-password-reset")
-    public ResponseEntity<String> verifyEmailPassReset(@RequestBody VerifyEmailDTO request) {
-        String response = authService.verifyEmailPassReset(request);
+    public ResponseEntity<String> verifyEmailPassReset(@RequestBody VerifyEmailDTO request, HttpServletRequest httpRequest) {
+        String response = authService.verifyEmailPassReset(request, httpRequest);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/Password-reset-change")
-    public ResponseEntity<String> PassResetChange(@RequestBody ResetPassword request) {
-        String response = authService.PassResetChange(request);
+    public ResponseEntity<String> PassResetChange(@RequestBody ResetPassword request, HttpServletRequest httpRequest) {
+        String response = authService.PassResetChange(request, httpRequest);
         return ResponseEntity.ok(response);
     }
 
@@ -79,7 +80,8 @@ public class AuthController {
 
     @PostMapping("/google-login")
     public ResponseEntity<AuthResponse> googleLogin(
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader, 
+            HttpServletRequest httpRequest) {
         try {
             // Extract token from "Bearer <token>"
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -89,7 +91,7 @@ public class AuthController {
             String idToken = authHeader.replace("Bearer ", "");
             
             // Call service to handle Google login with token
-            AuthResponse response = authService.googleLoginWithToken(idToken);
+            AuthResponse response = authService.googleLoginWithToken(idToken, httpRequest);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             throw new RuntimeException("Google login failed: " + e.getMessage());
