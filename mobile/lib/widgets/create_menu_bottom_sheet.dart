@@ -18,8 +18,8 @@ class CreateMenuOverlay extends StatelessWidget {
           decoration: const BoxDecoration(
             color: Color(0xFF282828),
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
             ),
           ),
           child: Column(
@@ -59,7 +59,9 @@ class CreateMenuOverlay extends StatelessWidget {
                   onClose();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const CreateRoomScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const CreateRoomScreen(),
+                    ),
                   );
                 },
               ),

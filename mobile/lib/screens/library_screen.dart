@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../providers/user_profile_provider.dart';
 import '../widgets/library_list_item.dart';
 import 'package:provider/provider.dart';
 import 'home_screen.dart';
+import 'profile/profile_screen.dart';
 import '../widgets/create_menu_bottom_sheet.dart';
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key});
+  final VoidCallback? onPlusTap;
+  const LibraryScreen({super.key, this.onPlusTap});
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -15,6 +18,7 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   bool _isSearching = false;
+  bool _isGridView = false;
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
 
@@ -22,44 +26,51 @@ class _LibraryScreenState extends State<LibraryScreen> {
     {
       'title': 'Liked Songs',
       'subtitle': 'Playlist • 124 songs',
-      'image': 'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
-      'isCircular': false
+      'image':
+          'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
+      'isCircular': false,
     },
     {
       'title': 'The Weeknd',
       'subtitle': 'Artist',
-      'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop',
-      'isCircular': true
+      'image':
+          'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop',
+      'isCircular': true,
     },
     {
       'title': 'Study Beats',
       'subtitle': 'Playlist • MusicRoom',
-      'image': 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=200&h=200&fit=crop',
-      'isCircular': false
+      'image':
+          'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=200&h=200&fit=crop',
+      'isCircular': false,
     },
     {
       'title': 'Arctic Monkeys',
       'subtitle': 'Artist',
-      'image': 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=200&h=200&fit=crop',
-      'isCircular': true
+      'image':
+          'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=200&h=200&fit=crop',
+      'isCircular': true,
     },
     {
       'title': 'Summer 2026',
       'subtitle': 'Playlist • You',
-      'image': 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=200&h=200&fit=crop',
-      'isCircular': false
+      'image':
+          'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=200&h=200&fit=crop',
+      'isCircular': false,
     },
     {
       'title': 'Daft Punk',
       'subtitle': 'Artist',
-      'image': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
-      'isCircular': true
+      'image':
+          'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
+      'isCircular': true,
     },
     {
       'title': 'Late Night Jazz',
       'subtitle': 'Playlist • MusicRoom',
-      'image': 'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
-      'isCircular': false
+      'image':
+          'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
+      'isCircular': false,
     },
   ];
 
@@ -96,7 +107,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
-                  child: _isSearching ? _buildSearchBar() : _buildDefaultHeader(userName),
+                  child: _isSearching
+                      ? _buildSearchBar()
+                      : _buildDefaultHeader(userName),
                 ),
               ),
             ),
@@ -106,64 +119,115 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: AnimatedOpacity(
                 opacity: _isSearching ? 0.0 : 1.0,
                 duration: const Duration(milliseconds: 200),
-                child: _isSearching 
-                  ? const SizedBox.shrink()
-                  : SizedBox(
-                      height: 60,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        children: const [
-                          FilterChip(label: 'Playlists'),
-                          FilterChip(label: 'Artists'),
-                          FilterChip(label: 'Albums'),
-                          FilterChip(label: 'Podcasts & Shows'),
-                        ],
+                child: _isSearching
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: 60,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          children: const [
+                            FilterChip(label: 'Playlists'),
+                            FilterChip(label: 'Artists'),
+                            FilterChip(label: 'Albums'),
+                            FilterChip(label: 'Podcasts & Shows'),
+                          ],
+                        ),
                       ),
-                    ),
               ),
             ),
 
             // ── Sorting & View Header ──────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.swap_vert_rounded, color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Recently played',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    InkWell(
+                      onTap: () {
+                        // Spotify simple sort toggle logic
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Sort options: Recently played, Recently added, Alphabetical',
+                            ),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.import_export_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Recently played',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const Spacer(),
-                    const Icon(Icons.grid_view_rounded, color: Colors.white, size: 20),
+                    IconButton(
+                      onPressed: () =>
+                          setState(() => _isGridView = !_isGridView),
+                      icon: Icon(
+                        _isGridView
+                            ? Icons.list_rounded
+                            : Icons.grid_view_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ],
                 ),
               ),
             ),
 
-            // ── Library List ───────────────────────────────────────────────────
+            // ── Library List/Grid ──────────────────────────────────────────────
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = _filteredItems[index];
-                    return LibraryListItem(
-                      title: item['title'],
-                      subtitle: item['subtitle'],
-                      imageUrl: item['image'],
-                      isCircular: item['isCircular'],
-                    );
-                  },
-                  childCount: _filteredItems.length,
-                ),
-              ),
+              sliver: _isGridView
+                  ? SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 0.8,
+                          ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = _filteredItems[index];
+                        return _buildGridItem(item);
+                      }, childCount: _filteredItems.length),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = _filteredItems[index];
+                        return LibraryListItem(
+                          title: item['title'],
+                          subtitle: item['subtitle'],
+                          imageUrl: item['image'],
+                          isCircular: item['isCircular'],
+                        );
+                      }, childCount: _filteredItems.length),
+                    ),
             ),
           ],
         );
@@ -171,20 +235,70 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  Widget _buildGridItem(Map<String, dynamic> item) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(item['isCircular'] ? 100 : 4),
+              image: DecorationImage(
+                image: NetworkImage(item['image']),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          item['title'],
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          item['subtitle'],
+          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
   Widget _buildDefaultHeader(String userName) {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: AppTheme.accent,
-          child: Text(
-            _getInitials(userName),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        Consumer<UserProfileProvider>(
+          builder: (context, profileProvider, child) {
+            final profile = profileProvider.profile;
+            final avatarUrl = profile?.avatarUrl;
+
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                );
+              },
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.grey[800],
+                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? NetworkImage(avatarUrl)
+                    : const NetworkImage(
+                        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
+                      ),
+              ),
+            );
+          },
         ),
         const SizedBox(width: 16),
         const Text(
@@ -205,9 +319,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
         const SizedBox(width: 16),
         IconButton(
-          onPressed: () {
-            context.findAncestorStateOfType<HomeScreenState>()?.toggleCreateMenu();
-          },
+          onPressed: widget.onPlusTap,
           icon: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -234,7 +346,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
               decoration: const InputDecoration(
                 hintText: 'Find in Your Library',
                 hintStyle: TextStyle(color: Colors.white54, fontSize: 14),
-                prefixIcon: Icon(Icons.search_rounded, color: Colors.white54, size: 20),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Colors.white54,
+                  size: 20,
+                ),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(vertical: 10),
               ),
@@ -251,7 +367,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           },
           child: const Text(
             'Cancel',
-            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

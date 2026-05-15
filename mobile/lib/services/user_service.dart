@@ -18,6 +18,7 @@ class UserService {
     if (Platform.isAndroid) return 'http://10.0.2.2:8080';
     return 'http://localhost:8080';
   }
+
   static const String _usersPath = '/api/users';
   static const String _eventsPath = '/api/events';
   static const String _friendshipsPath = '/api/friendships';
@@ -40,6 +41,26 @@ class UserService {
     } else {
       throw Exception('Failed to load user profile: ${response.statusCode}');
     }
+  }
+
+  /// Fetches all events
+  Future<List<Map<String, dynamic>>> getAllEvents(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_effectiveBaseUrl$_eventsPath'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> allEvents = jsonDecode(response.body);
+        return allEvents.cast<Map<String, dynamic>>();
+      }
+    } catch (_) {}
+    return [];
   }
 
   /// Fetches all events and returns the list belonging to this user (Playlists equivalent)
