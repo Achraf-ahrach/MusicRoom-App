@@ -25,7 +25,7 @@ public class DeviceService {
      * Register or update device (call this on every login)
      */
     public DeviceDto registerOrUpdateDevice(UUID userId, String deviceName, String platform, 
-                                           String appVersion, String pushToken, String ipAddress) {
+                                           String appVersion, String ipAddress) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -40,7 +40,6 @@ public class DeviceService {
                     .deviceName(deviceName)
                     .platform(platform)
                     .appVersion(appVersion)
-                    .pushToken(pushToken)
                     .lastSeen(LocalDateTime.now())
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -54,7 +53,6 @@ public class DeviceService {
             // EXISTING DEVICE - Update it
             device.setPlatform(platform);
             device.setAppVersion(appVersion);
-            device.setPushToken(pushToken);
             device.setLastSeen(LocalDateTime.now());
 
             device = deviceRepository.save(device);

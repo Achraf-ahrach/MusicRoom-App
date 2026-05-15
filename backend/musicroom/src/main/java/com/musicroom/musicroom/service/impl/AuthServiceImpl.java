@@ -120,7 +120,6 @@ public class AuthServiceImpl implements AuthService {
             request.deviceName() != null ? request.deviceName() : "Web Browser",
             request.platform() != null ? request.platform() : "Web",
             request.appVersion() != null ? request.appVersion() : "1.0.0",
-            request.pushToken() != null ? request.pushToken() : "",
             ipAddress
         );
         
