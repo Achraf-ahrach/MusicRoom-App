@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
+import '../providers/playlist_provider.dart';
+import '../providers/auth_provider.dart';
 
 class CreatePlaylistScreen extends StatefulWidget {
   const CreatePlaylistScreen({super.key});
@@ -9,7 +12,16 @@ class CreatePlaylistScreen extends StatefulWidget {
 }
 
 class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
   bool _isPrivate = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +87,7 @@ class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _buildTextField('Give your playlist a name...'),
+            _buildTextField('Give your playlist a name...', _nameController),
             const SizedBox(height: 24),
 
             // ── Description ──────────────────────────────────────────────────
@@ -84,7 +96,7 @@ class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _buildTextField('What\'s this playlist about?', maxLines: 3),
+            _buildTextField('What\'s this playlist about?', _descController, maxLines: 3),
             const SizedBox(height: 32),
 
             // ── Toggles ──────────────────────────────────────────────────────
@@ -101,12 +113,41 @@ class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement creation logic
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Playlist created successfully!')),
-                  );
-                  Navigator.pop(context);
+                onPressed: () async {
+                  final name = _nameController.text.trim();
+                  if (name.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Playlist name is required')),
+                    );
+                    return;
+                  }
+
+                  final desc = _descController.text.trim();
+                  final visibility = _isPrivate ? 'private' : 'public';
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
+
+                  try {
+                    await playlistProvider.createPlaylist(
+                      name,
+                      desc,
+                      visibility,
+                      authProvider.currentUser,
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Playlist created successfully!')),
+                      );
+                      Navigator.pop(context);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to create playlist: $e')),
+                      );
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.accent,
@@ -128,13 +169,14 @@ class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
     );
   }
 
-  Widget _buildTextField(String hint, {int maxLines = 1}) {
+  Widget _buildTextField(String hint, TextEditingController controller, {int maxLines = 1}) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: TextField(
+        controller: controller,
         maxLines: maxLines,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
@@ -169,7 +211,7 @@ class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
         Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeColor: AppTheme.accent,
+          activeThumbColor: AppTheme.accent,
         ),
       ],
     );

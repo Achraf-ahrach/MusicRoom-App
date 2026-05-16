@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
+import '../../providers/playlist_provider.dart';
 import 'edit_profile_screen.dart';
 import 'all_playlists_screen.dart';
 import 'settings_screen.dart';
+import '../playlist_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -26,6 +28,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           context,
           listen: false,
         ).fetchProfile(token);
+        Provider.of<PlaylistProvider>(
+          context,
+          listen: false,
+        ).loadPlaylists(authProvider.currentUser);
       }
     });
   }
@@ -110,6 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profileProvider = Provider.of<UserProfileProvider>(context);
+    final playlistProvider = Provider.of<PlaylistProvider>(context);
     final profile = profileProvider.profile;
 
     return Scaffold(
@@ -215,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _buildStatColumn(
-                          '${profileProvider.playlistsCount}',
+                          '${playlistProvider.playlists.length}',
                           'PLAYLISTS',
                         ),
                         _buildStatColumn(
@@ -260,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        if (profileProvider.userEvents.isEmpty)
+                        if (playlistProvider.playlists.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 16.0),
                             child: Center(
@@ -274,13 +281,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           )
                         else
-                          ...profileProvider.userEvents.take(3).map((event) {
-                            final title = event['name'] ?? 'Unknown';
-                            final trackCount = event['trackCount'] ?? 0;
+                          ...playlistProvider.playlists.take(3).map((playlist) {
+                            final title = playlist.title.isEmpty ? 'Untitled Playlist' : playlist.title;
                             return _buildPlaylistItem(
                               title,
-                              '$trackCount tracks',
+                              'Playlist',
                               Icons.music_note,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PlaylistDetailScreen(
+                                      playlistId: playlist.id,
+                                      initialPlaylist: playlist,
+                                      useBackend: true,
+                                    ),
+                                  ),
+                                );
+                              },
                             );
                           }).toList(),
 
@@ -291,7 +309,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => AllPlaylistsScreen(
-                                  playlists: profileProvider.userEvents,
+                                  playlists: playlistProvider.playlists.map((p) => {
+                                    'name': p.title,
+                                    'id': p.id,
+                                    'creatorName': p.creatorName,
+                                    'imageUrl': p.imageUrl,
+                                    'playlist': p,
+                                  }).toList(),
                                 ),
                               ),
                             );
@@ -356,40 +380,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String title,
     String subtitle,
     IconData iconPlaceholder,
+    {VoidCallback? onTap}
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            color: Colors.grey[800],
-            child: Icon(iconPlaceholder, color: Colors.grey[400], size: 30),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                ),
-              ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16.0),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              color: Colors.grey[800],
+              child: Icon(iconPlaceholder, color: Colors.grey[400], size: 30),
             ),
-          ),
-          Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
+          ],
+        ),
       ),
     );
   }

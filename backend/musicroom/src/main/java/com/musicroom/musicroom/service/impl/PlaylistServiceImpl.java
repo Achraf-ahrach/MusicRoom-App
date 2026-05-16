@@ -43,6 +43,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PlaylistDto> getMyPlaylists(UUID userId) {
         return playlistRepo.findAccessibleByUserId(userId)
                 .stream()
@@ -51,6 +52,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PlaylistDto> getPublicPlaylists() {
         return playlistRepo.findByVisibility("public")
                 .stream()
@@ -59,6 +61,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PlaylistDto getPlaylistById(UUID playlistId, UUID userId) {
         Playlist playlist = playlistRepo.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
@@ -132,6 +135,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PlaylistTrackDto> getPlaylistTracks(UUID playlistId, UUID userId) {
         Playlist playlist = playlistRepo.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));

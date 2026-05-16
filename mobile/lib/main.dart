@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'providers/user_profile_provider.dart';
+import 'providers/audio_provider.dart';
+import 'providers/playlist_provider.dart';
 import 'config/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'router/app_router_delegate.dart';
@@ -22,13 +24,19 @@ Future<void> main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  runApp(
+    runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProxyProvider<AuthProvider, UserProfileProvider>(
           create: (_) => UserProfileProvider(),
           update: (_, auth, userProfile) => userProfile!..updateAuthProvider(auth),
+        ),
+        ChangeNotifierProvider(create: (_) => AudioProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, PlaylistProvider>(
+          create: (_) => PlaylistProvider(),
+          update: (_, auth, playlistProvider) =>
+              playlistProvider!..updateAuthProvider(auth),
         ),
       ],
       child: const MusicRoomApp(),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../providers/playlist_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../widgets/library_list_item.dart';
 import 'package:provider/provider.dart';
-import 'home_screen.dart';
 import 'profile/profile_screen.dart';
-import '../widgets/create_menu_bottom_sheet.dart';
+import '../screens/playlist_detail_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   final VoidCallback? onPlusTap;
@@ -22,61 +22,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
 
-  final List<Map<String, dynamic>> _allLibraryItems = const [
-    {
-      'title': 'Liked Songs',
-      'subtitle': 'Playlist • 124 songs',
-      'image':
-          'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
-      'isCircular': false,
-    },
-    {
-      'title': 'The Weeknd',
-      'subtitle': 'Artist',
-      'image':
-          'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop',
-      'isCircular': true,
-    },
-    {
-      'title': 'Study Beats',
-      'subtitle': 'Playlist • MusicRoom',
-      'image':
-          'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=200&h=200&fit=crop',
-      'isCircular': false,
-    },
-    {
-      'title': 'Arctic Monkeys',
-      'subtitle': 'Artist',
-      'image':
-          'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=200&h=200&fit=crop',
-      'isCircular': true,
-    },
-    {
-      'title': 'Summer 2026',
-      'subtitle': 'Playlist • You',
-      'image':
-          'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=200&h=200&fit=crop',
-      'isCircular': false,
-    },
-    {
-      'title': 'Daft Punk',
-      'subtitle': 'Artist',
-      'image':
-          'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
-      'isCircular': true,
-    },
-    {
-      'title': 'Late Night Jazz',
-      'subtitle': 'Playlist • MusicRoom',
-      'image':
-          'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
-      'isCircular': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      Provider.of<PlaylistProvider>(context, listen: false).loadPlaylists(auth.currentUser);
+    });
+  }
 
-  List<Map<String, dynamic>> get _filteredItems {
-    if (_searchQuery.isEmpty) return _allLibraryItems;
-    return _allLibraryItems.where((item) {
+  List<Map<String, dynamic>> _getFilteredItems(BuildContext context) {
+    final playlistProvider = Provider.of<PlaylistProvider>(context);
+    List<Map<String, dynamic>> items = playlistProvider.playlists.map((p) {
+      return {
+        'id': p.id,
+        'title': p.title.isEmpty ? 'Untitled Playlist' : p.title,
+        'subtitle': 'Playlist • ${p.creatorName.isEmpty ? 'You' : p.creatorName}',
+        'image': p.imageUrl ?? 'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
+        'isCircular': false,
+        'playlist': p,
+      };
+    }).toList();
+
+    if (_searchQuery.isEmpty) return items;
+    return items.where((item) {
       final title = item['title'].toString().toLowerCase();
       return title.contains(_searchQuery.toLowerCase());
     }).toList();
@@ -213,20 +182,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             childAspectRatio: 0.8,
                           ),
                       delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = _filteredItems[index];
+                        final items = _getFilteredItems(context);
+                        final item = items[index];
                         return _buildGridItem(item);
-                      }, childCount: _filteredItems.length),
+                      }, childCount: _getFilteredItems(context).length),
                     )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = _filteredItems[index];
+                        final items = _getFilteredItems(context);
+                        final item = items[index];
                         return LibraryListItem(
                           title: item['title'],
                           subtitle: item['subtitle'],
                           imageUrl: item['image'],
                           isCircular: item['isCircular'],
+                          onTap: () => _openPlaylistDetail(context, item),
                         );
-                      }, childCount: _filteredItems.length),
+                      }, childCount: _getFilteredItems(context).length),
                     ),
             ),
           ],
@@ -236,38 +208,58 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildGridItem(Map<String, dynamic> item) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(item['isCircular'] ? 100 : 4),
-              image: DecorationImage(
-                image: NetworkImage(item['image']),
-                fit: BoxFit.cover,
+    return InkWell(
+      onTap: () => _openPlaylistDetail(context, item),
+      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(item['isCircular'] ? 100 : 4),
+                image: DecorationImage(
+                  image: NetworkImage(item['image']),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          item['title'],
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+          const SizedBox(height: 8),
+          Text(
+            item['title'],
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          Text(
+            item['subtitle'],
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openPlaylistDetail(BuildContext context, Map<String, dynamic> item) {
+    final playlist = item['playlist'];
+    if (playlist == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlaylistDetailScreen(
+          playlistId: playlist.id,
+          initialPlaylist: playlist,
+          useBackend: true,
         ),
-        Text(
-          item['subtitle'],
-          style: TextStyle(color: Colors.grey[400], fontSize: 12),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+      ),
     );
   }
 
@@ -378,13 +370,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
-  }
 }
 
 class FilterChip extends StatelessWidget {

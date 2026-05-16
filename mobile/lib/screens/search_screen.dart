@@ -5,6 +5,7 @@ import '../widgets/category_card.dart';
 import '../services/audius_service.dart';
 import '../models/track_model.dart';
 import '../providers/user_profile_provider.dart';
+import '../providers/audio_provider.dart';
 import 'profile/profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -213,6 +214,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             child: TextField(
               controller: _searchController,
+              onChanged: (_) => setState(() {}),
               onSubmitted: _performSearch,
               style: const TextStyle(color: Colors.black),
               decoration: InputDecoration(
@@ -276,48 +278,67 @@ class _SearchScreenState extends State<SearchScreen> {
                       itemCount: _musicVideos.length,
                       itemBuilder: (context, index) {
                         final track = _musicVideos[index];
-                        return Container(
-                          width: 240,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            image: DecorationImage(
-                              image: NetworkImage(
-                                track.imageUrl ??
-                                    'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=225&fit=crop',
-                              ),
-                              fit: BoxFit.cover,
-                              colorFilter: ColorFilter.mode(
-                                Colors.black.withOpacity(0.3),
-                                BlendMode.darken,
+                        return GestureDetector(
+                          onTap: track.audioUrl == null || track.audioUrl!.isEmpty
+                              ? null
+                              : () {
+                                  final audioProvider =
+                                      Provider.of<AudioProvider>(
+                                        context,
+                                        listen: false,
+                                      );
+                                  audioProvider.playTrack(
+                                    track,
+                                    playlist: _musicVideos,
+                                    index: index,
+                                  );
+                                },
+                          child: Container(
+                            width: 240,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              image: DecorationImage(
+                                image: NetworkImage(
+                                  track.imageUrl ??
+                                      'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=225&fit=crop',
+                                ),
+                                fit: BoxFit.cover,
+                                colorFilter: ColorFilter.mode(
+                                  Colors.black.withOpacity(0.3),
+                                  BlendMode.darken,
+                                ),
                               ),
                             ),
-                          ),
-                          child: Stack(
-                            children: [
-                              const Center(
-                                child: Icon(
-                                  Icons.play_circle_fill,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 8,
-                                left: 8,
-                                right: 8,
-                                child: Text(
-                                  track.title,
-                                  style: const TextStyle(
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: Icon(
+                                    track.audioUrl != null &&
+                                            track.audioUrl!.isNotEmpty
+                                        ? Icons.play_circle_fill
+                                        : Icons.block,
                                     color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                    size: 40,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                                Positioned(
+                                  bottom: 8,
+                                  left: 8,
+                                  right: 8,
+                                  child: Text(
+                                    track.title,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -351,10 +372,17 @@ class _SearchScreenState extends State<SearchScreen> {
                 mainAxisSpacing: 12,
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
-                return CategoryCard(
-                  title: _categories[index]['title'],
-                  color: _categories[index]['color'],
-                  imageUrl: _categories[index]['image'],
+                return GestureDetector(
+                  onTap: () {
+                    final title = _categories[index]['title'] as String;
+                    _searchController.text = title;
+                    _performSearch(title);
+                  },
+                  child: CategoryCard(
+                    title: _categories[index]['title'] as String,
+                    color: _categories[index]['color'] as Color,
+                    imageUrl: _categories[index]['image'] as String,
+                  ),
                 );
               }, childCount: _categories.length),
             ),
@@ -426,7 +454,26 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 trailing: const Icon(Icons.more_vert, color: Colors.grey),
                 onTap: () {
-                  // Handle track selection - maybe play it?
+                  if (track.audioUrl == null || track.audioUrl!.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'This track is not currently streamable on Audius.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final audioProvider = Provider.of<AudioProvider>(
+                    context,
+                    listen: false,
+                  );
+                  audioProvider.playTrack(
+                    track,
+                    playlist: _searchResults,
+                    index: index,
+                  );
                 },
               );
             }, childCount: _searchResults.length),
