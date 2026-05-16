@@ -7,16 +7,7 @@ import '../models/user_profile_model.dart';
 
 class UserService {
   String get _effectiveBaseUrl {
-    final url = dotenv.env['API_URL'];
-    if (url != null && url.isNotEmpty) {
-      if (url.contains('localhost') && !kIsWeb && Platform.isAndroid) {
-        return url.replaceAll('localhost', '10.0.2.2');
-      }
-      return url;
-    }
-    if (kIsWeb) return 'http://localhost:8080';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8080';
-    return 'http://localhost:8080';
+return "https://anisa-phenetic-predictively.ngrok-free.dev";
   }
   static const String _usersPath = '/api/users';
   static const String _eventsPath = '/api/events';

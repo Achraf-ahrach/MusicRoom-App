@@ -3,51 +3,82 @@ import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-
+import 'dart:io' show Platform;
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 /// Handles all HTTP communication with the authentication backend.
 /// Base URL points to the backend API.
 class AuthService {
   // Get base URL from .env file
   String get _effectiveBaseUrl {
-    final url = dotenv.env['API_URL'];
-    if (url != null && url.isNotEmpty) {
-      // If localhost is used, handle Android emulator 10.0.2.2 fallback
-      if (url.contains('localhost') && !kIsWeb && Platform.isAndroid) {
-        return url.replaceAll('localhost', '10.0.2.2');
-      }
-      return url;
-    }
-
-    // Fallbacks by platform for local development.
-    if (kIsWeb) return 'http://localhost:8080';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8080';
-    return 'http://localhost:8080';
+  return "https://anisa-phenetic-predictively.ngrok-free.dev";
   }
 
   static const String _authPath = '/api/auth';
   /// POST /login
   /// Returns the full parsed response body.
   /// Throws [AuthException] on failure.
-  Future<Map<String, dynamic>> login({
-    required String email,
-    required String password,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$_effectiveBaseUrl$_authPath/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+// import 'dart:io' show Platform;
+// import 'package:device_info_plus/device_info_plus.dart';
+// import 'package:package_info_plus/package_info_plus.dart';
 
-    final decoded = _decodeBody(response.body);
-    final body = _toMap(decoded);
+Future<Map<String, dynamic>> login({
+  required String email,
+  required String password,
+}) async {
+  // Gather device info
+  final deviceData = await _getDeviceInfo();
 
-    if (response.statusCode != 200) {
-      throw AuthException(_extractErrorMessage(decoded, 'Login failed'));
-    }
+  final response = await http.post(
+    Uri.parse('$_effectiveBaseUrl$_authPath/login'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'email': email,
+      'password': password,
+      'deviceName': deviceData['deviceName'],   // e.g. "Samsung Galaxy S21"
+      'platform': deviceData['platform'],        // e.g. "Android"
+      'appVersion': deviceData['appVersion'],    // e.g. "1.0.0"
+    }),
+  );
 
-    return body;
+  final decoded = _decodeBody(response.body);
+  final body = _toMap(decoded);
+
+  if (response.statusCode != 200) {
+    throw AuthException(_extractErrorMessage(decoded, 'Login failed'));
   }
 
+  return body;
+}
+
+Future<Map<String, String>> _getDeviceInfo() async {
+  final deviceInfo = DeviceInfoPlugin();
+  final packageInfo = await PackageInfo.fromPlatform();
+  final appVersion = packageInfo.version; // e.g. "1.2.3"
+
+  if (Platform.isAndroid) {
+    final android = await deviceInfo.androidInfo;
+    return {
+      'deviceName': '${android.manufacturer} ${android.model}', // "Samsung Galaxy S21"
+      'platform': 'Android',
+      'appVersion': appVersion,
+    };
+  } else if (Platform.isIOS) {
+    final ios = await deviceInfo.iosInfo;
+    return {
+      'deviceName': ios.name,        // "John's iPhone"
+      'platform': 'iOS',
+      'appVersion': appVersion,
+    };
+  }
+
+  // Fallback (desktop/web)
+  return {
+    'deviceName': 'Unknown Device',
+    'platform': Platform.operatingSystem,
+    'appVersion': appVersion,
+  };
+}
   /// POST /signup
   /// Returns the full parsed response body (includes token).
   /// Throws [AuthException] on failure.
