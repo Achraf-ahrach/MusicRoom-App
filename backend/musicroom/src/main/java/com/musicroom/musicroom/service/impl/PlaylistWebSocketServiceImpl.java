@@ -25,12 +25,29 @@ public class PlaylistWebSocketServiceImpl implements PlaylistWebSocketService {
     private final PlaylistOperationRepository operationRepo;
     private final TrackRepository trackRepo;
     private final SimpMessagingTemplate messagingTemplate;
+    private final PlaylistInviteRepository inviteRepo;
+
+    private void checkEditPermission(Playlist playlist, UUID userId) {
+        if (playlist.getOwner().getId().equals(userId)) {
+            return;
+        }
+
+        boolean isEditor = inviteRepo.findByPlaylistIdAndUserId(playlist.getId(), userId)
+                .map(invite -> "editor".equalsIgnoreCase(invite.getPermission()))
+                .orElse(false);
+
+        if (!isEditor) {
+            throw new org.springframework.security.access.AccessDeniedException("Not authorized to edit this playlist");
+        }
+    }
 
     @Override
     @Transactional
     public PlaylistUpdateMessage addTrack(UUID playlistId, UUID userId, AddTrackMessage message) {
         Playlist playlist = playlistRepo.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        checkEditPermission(playlist, userId);
 
         // vérifier la version pour détecter les conflits
         if (!message.getVersion().equals(playlist.getVersion())) {
@@ -95,6 +112,8 @@ public class PlaylistWebSocketServiceImpl implements PlaylistWebSocketService {
     public PlaylistUpdateMessage removeTrack(UUID playlistId, UUID userId, RemoveTrackMessage message) {
         Playlist playlist = playlistRepo.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        checkEditPermission(playlist, userId);
 
         // vérifier la version
         if (!message.getVersion().equals(playlist.getVersion())) {

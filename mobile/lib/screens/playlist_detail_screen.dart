@@ -641,8 +641,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         builder: (context) {
           final auth = Provider.of<AuthProvider>(context, listen: false);
           final isOwner = _playlist?.ownerId == auth.currentUser?.id;
+          final isEditor = _playlist?.permission == 'editor';
+          final hasEditPermission = isOwner || isEditor;
 
-          if (widget.useBackend && isOwner && track.playlistTrackId != null) {
+          if (widget.useBackend && hasEditPermission && track.playlistTrackId != null) {
             return PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white54),
               color: AppTheme.surface,

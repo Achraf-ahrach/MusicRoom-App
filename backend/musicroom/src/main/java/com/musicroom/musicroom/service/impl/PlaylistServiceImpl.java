@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import com.musicroom.musicroom.exception.BadRequestException;
 import java.io.IOException;
 
@@ -203,11 +206,36 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .collect(Collectors.toList());
     }
 
+    private String getCurrentUserIdString() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserDetails) {
+            return ((UserDetails) auth.getPrincipal()).getUsername();
+        }
+        return null;
+    }
+
     private PlaylistDto toDto(Playlist playlist) {
         String coverUrl = null;
         List<PlaylistTrack> tracks = playlistTrackRepo.findByPlaylistIdOrderByPosition(playlist.getId());
         if (tracks != null && !tracks.isEmpty()) {
             coverUrl = tracks.get(0).getTrack().getCoverUrl();
+        }
+
+        String permission = null;
+        try {
+            String currentUserIdStr = getCurrentUserIdString();
+            if (currentUserIdStr != null) {
+                UUID currentUserId = UUID.fromString(currentUserIdStr);
+                if (playlist.getOwner().getId().equals(currentUserId)) {
+                    permission = "owner";
+                } else {
+                    permission = inviteRepo.findByPlaylistIdAndUserId(playlist.getId(), currentUserId)
+                            .map(PlaylistInvite::getPermission)
+                            .orElse(null);
+                }
+            }
+        } catch (Exception e) {
+            // Ignore context exceptions
         }
 
         return PlaylistDto.builder()
@@ -223,6 +251,7 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .createdAt(playlist.getCreatedAt())
                 .updatedAt(playlist.getUpdatedAt())
                 .coverUrl(coverUrl)
+                .permission(permission)
                 .build();
     }
 

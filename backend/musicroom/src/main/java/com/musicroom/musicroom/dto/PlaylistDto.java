@@ -19,4 +19,5 @@ public class PlaylistDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String coverUrl;
+    private String permission;
 }

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../models/playlist_model.dart';
+import '../models/user_profile_model.dart';
 import '../providers/auth_provider.dart';
 import '../services/follow_service.dart';
 import '../services/playlist_service.dart';
+import '../services/user_service.dart';
 import 'playlist_detail_screen.dart';
 
 class UserPublicProfileScreen extends StatefulWidget {
@@ -28,6 +30,7 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
   int _followingCount = 0;
   List<Playlist> _playlists = [];
   bool _isLoading = true;
+  UserProfileModel? _profile;
 
   @override
   void initState() {
@@ -49,6 +52,7 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
         followService.getFollowers(widget.userId, token),
         followService.getFollowing(widget.userId, token),
         playlistService.getPublicPlaylistsByUser(widget.userId, token),
+        UserService().getUserProfile(widget.userId, token),
       ]);
 
       if (!mounted) return;
@@ -57,6 +61,7 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
         _followersCount = (results[1] as List).length;
         _followingCount = (results[2] as List).length;
         _playlists = results[3] as List<Playlist>;
+        _profile = results[4] as UserProfileModel;
         _isLoading = false;
       });
     } catch (e) {
@@ -132,17 +137,22 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                             // Avatar
                             CircleAvatar(
                               radius: 46,
+                              backgroundImage: _profile?.avatarUrl != null && _profile!.avatarUrl!.isNotEmpty && !_profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
+                                  ? NetworkImage(_profile!.avatarUrl!)
+                                  : null,
                               backgroundColor: AppTheme.surface,
-                              child: Text(
-                                widget.displayName.isNotEmpty
-                                    ? widget.displayName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              child: _profile?.avatarUrl == null || _profile!.avatarUrl!.isEmpty || _profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
+                                  ? Text(
+                                      widget.displayName.isNotEmpty
+                                          ? widget.displayName[0].toUpperCase()
+                                          : '?',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
                             ),
                             const SizedBox(height: 12),
                             Text(
