@@ -1,5 +1,6 @@
 class Track {
   final String id;
+  final String? playlistTrackId;
   final String title;
   final String? imageUrl;
   final String artistName;
@@ -9,6 +10,7 @@ class Track {
 
   Track({
     required this.id,
+    this.playlistTrackId,
     required this.title,
     this.imageUrl,
     required this.artistName,
@@ -48,6 +50,7 @@ class Track {
 
     return Track(
       id: externalId ?? (json['id'] ?? '').toString(),
+      playlistTrackId: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       imageUrl: json['coverUrl'] as String?,
       artistName: (json['artist'] ?? 'Unknown Artist').toString(),

@@ -176,6 +176,50 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           );
                         }
                       }
+                    } else if (value == 'delete_playlist') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: AppTheme.surface,
+                          title: const Text('Delete Playlist', style: TextStyle(color: Colors.white)),
+                          content: const Text('Are you sure you want to delete this playlist? This cannot be undone.', style: TextStyle(color: Colors.white70)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true && mounted) {
+                        setState(() => _isLoading = true);
+                        try {
+                          final playlistService = PlaylistService();
+                          await playlistService.deletePlaylist(widget.playlistId, auth.currentUser!.accessToken);
+                          
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Playlist deleted successfully'),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                            Navigator.pop(context, true); // Pop back to library/home
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            setState(() => _isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to delete: $e')),
+                            );
+                          }
+                        }
+                      }
                     }
                   },
                   itemBuilder: (context) => [
@@ -196,6 +240,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 ? 'Make Public'
                                 : 'Make Private',
                             style: const TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(height: 1),
+                    const PopupMenuItem<String>(
+                      value: 'delete_playlist',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Delete Playlist',
+                            style: TextStyle(color: Colors.redAccent),
                           ),
                         ],
                       ),
@@ -518,7 +580,65 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: const Icon(Icons.music_note_rounded, color: Colors.white54),
+      trailing: Builder(
+        builder: (context) {
+          final auth = Provider.of<AuthProvider>(context, listen: false);
+          final isOwner = _playlist?.ownerId == auth.currentUser?.id;
+
+          if (widget.useBackend && isOwner && track.playlistTrackId != null) {
+            return PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white54),
+              color: AppTheme.surface,
+              onSelected: (value) async {
+                if (value == 'remove_track') {
+                  try {
+                    setState(() => _isLoading = true);
+                    final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
+                    await playlistProvider.removeTrackFromPlaylist(
+                      _playlist!,
+                      track.playlistTrackId!,
+                      auth.currentUser,
+                    );
+                    
+                    setState(() {
+                      _tracks.removeAt(index);
+                      _isLoading = false;
+                    });
+                    
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Track removed successfully'),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    setState(() => _isLoading = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to remove track: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem<String>(
+                  value: 'remove_track',
+                  child: Row(
+                    children: [
+                      Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 12),
+                      Text('Remove Track', style: TextStyle(color: Colors.redAccent)),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+          return const Icon(Icons.music_note_rounded, color: Colors.white54);
+        }
+      ),
       onTap: track.audioUrl == null
           ? null
           : () {

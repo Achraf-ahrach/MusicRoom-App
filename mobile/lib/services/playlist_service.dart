@@ -143,6 +143,18 @@ class PlaylistService {
     }
   }
 
+  // Delete a playlist
+  Future<void> deletePlaylist(String playlistId, String token) async {
+    final response = await http.delete(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId'),
+      headers: _headers(token),
+    );
+
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Failed to delete playlist (${response.statusCode})');
+    }
+  }
+
   // Add track to playlist using WebSockets
   Future<void> addTrackToPlaylist(String playlistId, Track track, String token, int version) async {
     final completer = Completer<void>();
@@ -219,6 +231,80 @@ class PlaylistService {
         'album': '',
         'coverUrl': track.imageUrl ?? '',
         'durationMs': null,
+        'version': version,
+      }),
+    );
+  }
+
+  // Remove track from playlist using WebSockets
+  Future<void> removeTrackFromPlaylist(String playlistId, String playlistTrackId, String token, int version) async {
+    final completer = Completer<void>();
+
+    if (_stompClient != null && _stompClient!.isActive) {
+      _sendRemoveTrackMessage(playlistId, playlistTrackId, token, version);
+      completer.complete();
+      return completer.future;
+    }
+
+    final wsUrl = _effectiveBaseUrl.replaceFirst('http', 'ws') + '/ws';
+    
+    _stompClient = StompClient(
+      config: StompConfig(
+        url: wsUrl,
+        onConnect: (StompFrame frame) {
+          _sendRemoveTrackMessage(playlistId, playlistTrackId, token, version);
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+          
+          Future.delayed(const Duration(seconds: 2), () {
+            _stompClient?.deactivate();
+            _stompClient = null;
+          });
+        },
+        onStompError: (frame) {
+          if (!completer.isCompleted) {
+            completer.completeError(
+              Exception(frame.body ?? 'WebSocket STOMP error while removing track'),
+            );
+          }
+        },
+        onWebSocketError: (dynamic error) {
+          if (!completer.isCompleted) {
+            completer.completeError(Exception('WebSocket error: $error'));
+          }
+        },
+        onDisconnect: (frame) {
+          if (!completer.isCompleted) {
+            completer.completeError(Exception('WebSocket disconnected before track remove'));
+          }
+        },
+        stompConnectHeaders: {
+          'Authorization': 'Bearer $token',
+        },
+        webSocketConnectHeaders: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+
+    _stompClient!.activate();
+    return completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => throw Exception('Timed out while removing track from playlist'),
+    );
+  }
+
+  void _sendRemoveTrackMessage(String playlistId, String playlistTrackId, String token, int version) {
+    if (_stompClient == null) return;
+    
+    _stompClient!.send(
+      destination: '/app/playlist/$playlistId/remove',
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'trackId': playlistTrackId,
         'version': version,
       }),
     );

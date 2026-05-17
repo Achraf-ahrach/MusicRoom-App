@@ -104,7 +104,8 @@ public class PlaylistWebSocketServiceImpl implements PlaylistWebSocketService {
         }
 
         PlaylistTrack playlistTrack = playlistTrackRepo
-                .findByPlaylistIdAndTrackId(playlistId, message.getTrackId())
+                .findById(message.getTrackId())
+                .filter(pt -> pt.getPlaylist().getId().equals(playlistId))
                 .orElseThrow(() -> new ResourceNotFoundException("Track not in playlist"));
 
         playlistTrackRepo.delete(playlistTrack);
@@ -154,7 +155,8 @@ public class PlaylistWebSocketServiceImpl implements PlaylistWebSocketService {
         }
 
         PlaylistTrack trackToMove = playlistTrackRepo
-                .findByPlaylistIdAndTrackId(playlistId, message.getTrackId())
+                .findById(message.getTrackId())
+                .filter(pt -> pt.getPlaylist().getId().equals(playlistId))
                 .orElseThrow(() -> new ResourceNotFoundException("Track not in playlist"));
 
         List<PlaylistTrack> allTracks = playlistTrackRepo

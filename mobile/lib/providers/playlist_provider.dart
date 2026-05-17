@@ -165,6 +165,25 @@ class PlaylistProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeTrackFromPlaylist(Playlist playlist, String playlistTrackId, UserModel? user) async {
+    final resolvedUser = _resolveUser(user);
+    if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
+      throw Exception('User not authenticated');
+    }
+    await _withAuthRetry(
+      (token) => _playlistService.removeTrackFromPlaylist(
+        playlist.id,
+        playlistTrackId,
+        token,
+        playlist.version,
+      ),
+      fallbackToken: resolvedUser.accessToken,
+    );
+    _errorMessage = null;
+    _incrementPlaylistVersion(playlist.id);
+    notifyListeners();
+  }
+
   Future<Playlist> updatePlaylistVisibility(Playlist playlist, String visibility, UserModel? user) async {
     final resolvedUser = _resolveUser(user);
     if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
