@@ -43,11 +43,12 @@ class UserService {
     }
   }
 
-  /// Fetches all events
   Future<List<Map<String, dynamic>>> getAllEvents(String token) async {
     try {
+      final url = Uri.parse('$_effectiveBaseUrl$_eventsPath');
+      print('DEBUG [getAllEvents]: Requesting $url with token length ${token.length}');
       final response = await http.get(
-        Uri.parse('$_effectiveBaseUrl$_eventsPath'),
+        url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -55,11 +56,19 @@ class UserService {
         },
       );
 
+      print('DEBUG [getAllEvents]: Response status = ${response.statusCode}');
+      print('DEBUG [getAllEvents]: Response body = ${response.body}');
+
       if (response.statusCode == 200) {
         final List<dynamic> allEvents = jsonDecode(response.body);
         return allEvents.cast<Map<String, dynamic>>();
+      } else {
+        print('DEBUG [getAllEvents]: Failed to load events, status = ${response.statusCode}');
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      print('DEBUG [getAllEvents]: Exception caught = $e');
+      print('DEBUG [getAllEvents]: Stacktrace = $stackTrace');
+    }
     return [];
   }
 

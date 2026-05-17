@@ -13,10 +13,12 @@ class EventService {
       }
       return url;
     }
-    if (kIsWeb) return 'http://localhost:8080/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8080/api';
-    return 'http://localhost:8080/api';
+    if (kIsWeb) return 'http://localhost:8080';
+    if (Platform.isAndroid) return 'http://10.0.2.2:8080';
+    return 'http://localhost:8080';
   }
+
+  static const String _eventsPath = '/api/events';
 
   Future<void> createEvent(
     String name,
@@ -24,7 +26,7 @@ class EventService {
     bool isPrivate,
     String token,
   ) async {
-    final url = Uri.parse('$_effectiveBaseUrl/events');
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath');
     final response = await http.post(
       url,
       headers: {
@@ -48,7 +50,7 @@ class EventService {
   }
 
   Future<void> inviteUser(String eventId, String userId, String token) async {
-    final url = Uri.parse('$_effectiveBaseUrl/events/$eventId/invite');
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/invite');
     final response = await http.post(
       url,
       headers: {

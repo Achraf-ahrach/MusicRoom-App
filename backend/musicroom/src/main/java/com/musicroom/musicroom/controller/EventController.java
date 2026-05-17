@@ -34,8 +34,10 @@ public class EventController {
 
     @Operation(summary = "Liste tous les événements publics")
     @GetMapping
-    public ResponseEntity<List<EventDto>> getAllPublicEvents() {
-        return ResponseEntity.ok(eventService.getAllPublicEvents());
+    public ResponseEntity<List<EventDto>> getAllPublicEvents(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(eventService.getAllPublicEvents(userId));
     }
 
     @Operation(summary = "Détail d'un événement")

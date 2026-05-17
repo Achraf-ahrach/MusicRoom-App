@@ -18,9 +18,7 @@ class _SearchScreenState extends State<SearchScreen> {
   final AudiusService _audiusService = AudiusService();
   final TextEditingController _searchController = TextEditingController();
   List<Track> _searchResults = [];
-  List<Track> _musicVideos = [];
   bool _isLoading = false;
-  bool _isVideosLoading = true;
   bool _hasSearched = false;
 
   final List<Map<String, dynamic>> _categories = const [
@@ -89,23 +87,6 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchMusicVideos();
-  }
-
-  Future<void> _fetchMusicVideos() async {
-    try {
-      final videos = await _audiusService.getMusicVideos();
-      if (mounted) {
-        setState(() {
-          _musicVideos = videos;
-          _isVideosLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isVideosLoading = false);
-      }
-    }
   }
 
   Future<void> _performSearch(String query) async {
@@ -249,81 +230,6 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
 
         if (!_hasSearched) ...[
-          // ── Music Videos Section ───────────────────────────────────────────
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Text(
-                'Explore music videos',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 160,
-              child: _isVideosLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Colors.green),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _musicVideos.length,
-                      itemBuilder: (context, index) {
-                        final track = _musicVideos[index];
-                        return Container(
-                          width: 240,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            image: DecorationImage(
-                              image: NetworkImage(
-                                track.imageUrl ??
-                                    'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=225&fit=crop',
-                              ),
-                              fit: BoxFit.cover,
-                              colorFilter: ColorFilter.mode(
-                                Colors.black.withOpacity(0.3),
-                                BlendMode.darken,
-                              ),
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              const Center(
-                                child: Icon(
-                                  Icons.play_circle_fill,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 8,
-                                left: 8,
-                                right: 8,
-                                child: Text(
-                                  track.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ),
 
           // ── Browse All Title ───────────────────────────────────────────────
           const SliverToBoxAdapter(

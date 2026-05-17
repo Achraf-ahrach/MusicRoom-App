@@ -53,14 +53,16 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    public List<EventDto> getAllPublicEvents() {
-        return eventRepo.findByVisibilityAndActiveTrue("public")
+    @Transactional(readOnly = true)
+    public List<EventDto> getAllPublicEvents(UUID userId) {
+        return eventRepo.findActivePublicOwnedOrInvitedEvents(userId)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public EventDto getEventById(UUID eventId) {
         Event event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
@@ -129,6 +131,7 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PlaylistEntryDto> getPlaylist(UUID eventId) {
         eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));

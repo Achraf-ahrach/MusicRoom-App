@@ -35,12 +35,16 @@ public class DelegationServiceImpl implements DelegationService {
 
      
 
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Owner user not found"));
+
         User delegate = userRepository.findById(request.getDelegateId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Delegate user not found"));
-        System.out.println("hello i wanna check if it's here and its will write soeint or no ");
+        
         Delegation delegation = Delegation.builder()
-                .owner(User.builder().id(ownerId).build())
+                .owner(owner)
                 .delegate(delegate)
                 .resourceType(request.getResourceType())
                 .resourceId(request.getResourceId())

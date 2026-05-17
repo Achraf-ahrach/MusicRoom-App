@@ -25,22 +25,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
+            System.out.println("DEBUG [JwtFilter]: Extracted JWT from request: " + (jwt != null ? "length " + jwt.length() : "null"));
 
-            if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
-                String userId = jwtTokenProvider.getUserIdFromToken(jwt);
+            if (jwt != null) {
+                boolean isValid = jwtTokenProvider.validateToken(jwt);
+                System.out.println("DEBUG [JwtFilter]: isTokenValid = " + isValid);
                 
-                org.springframework.security.core.userdetails.UserDetails userDetails = 
-                        org.springframework.security.core.userdetails.User.withUsername(userId)
-                        .password("")
-                        .authorities(new ArrayList<>())
-                        .build();
+                if (isValid) {
+                    String userId = jwtTokenProvider.getUserIdFromToken(jwt);
+                    System.out.println("DEBUG [JwtFilter]: Authenticating user ID = " + userId);
+                    
+                    org.springframework.security.core.userdetails.UserDetails userDetails = 
+                            org.springframework.security.core.userdetails.User.withUsername(userId)
+                            .password("")
+                            .authorities(new ArrayList<>())
+                            .build();
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    System.out.println("DEBUG [JwtFilter]: Token validation failed for: " + jwt);
+                }
             }
         } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context", ex);
+            System.out.println("DEBUG [JwtFilter]: Exception caught during authentication: " + ex.getMessage());
+            ex.printStackTrace();
         }
 
         filterChain.doFilter(request, response);

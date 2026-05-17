@@ -8,7 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface EventService {
     EventDto createEvent(UUID ownerId, CreateEventRequest request);
-    List<EventDto> getAllPublicEvents();
+    List<EventDto> getAllPublicEvents(UUID userId);
     EventDto getEventById(UUID eventId);
     EventDto updateEvent(UUID ownerId, UUID eventId, CreateEventRequest request);
     void deleteEvent(UUID ownerId, UUID eventId);
