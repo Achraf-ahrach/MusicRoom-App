@@ -36,13 +36,12 @@ class HomeScreenState extends State<HomeScreen> {
     _fetchData();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final token = authProvider.currentUser?.accessToken;
-      if (token != null) {
+      if (authProvider.currentUser?.accessToken != null) {
         Provider.of<UserProfileProvider>(
           context,
           listen: false,
-        ).fetchProfile(token);
-        _fetchEvents(token);
+        ).fetchProfile(authProvider.currentUser!.accessToken);
+        _fetchEvents();
       } else {
         setState(() => isLoadingEvents = false);
       }
@@ -53,13 +52,38 @@ class HomeScreenState extends State<HomeScreen> {
     await Future.wait([_fetchPlaylists(), _fetchTracks()]);
   }
 
-  Future<void> _fetchEvents(String token) async {
+  Future<void> _fetchEvents() async {
     try {
       setState(() {
         isLoadingEvents = true;
         eventError = null;
       });
-      final fetchedEvents = await _userService.getAllEvents(token);
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      var token = authProvider.currentUser?.accessToken ?? '';
+      if (token.isEmpty) {
+        throw Exception('Missing auth token');
+      }
+
+      List<Map<String, dynamic>> fetchedEvents;
+      try {
+        fetchedEvents = await _userService.getAllEvents(token);
+      } catch (e) {
+        final errorText = e.toString();
+        final shouldRefresh =
+            errorText.contains('401') || errorText.contains('403');
+        if (!shouldRefresh) rethrow;
+
+        final refreshed = await authProvider.refreshTokens();
+        if (!refreshed) rethrow;
+
+        token = authProvider.currentUser?.accessToken ?? '';
+        if (token.isEmpty) {
+          throw Exception('Missing auth token after refresh');
+        }
+        fetchedEvents = await _userService.getAllEvents(token);
+      }
+
       if (mounted)
         setState(() {
           events = fetchedEvents;

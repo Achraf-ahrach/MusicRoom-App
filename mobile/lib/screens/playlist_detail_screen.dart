@@ -45,17 +45,40 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
     try {
       if (widget.useBackend) {
-        final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
-        if (token == null || token.isEmpty) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        var token = authProvider.currentUser?.accessToken ?? '';
+        if (token.isEmpty) {
           throw Exception('Missing auth token');
         }
 
         final playlistService = PlaylistService();
-        var tracks = await playlistService.getPlaylistTracks(widget.playlistId, token);
+        Future<List<Track>> loadTracksWithToken(String activeToken) {
+          return playlistService.getPlaylistTracks(widget.playlistId, activeToken);
+        }
+
+        List<Track> tracks;
+        try {
+          tracks = await loadTracksWithToken(token);
+        } catch (e) {
+          final errorText = e.toString();
+          final shouldRefresh =
+              errorText.contains('401') || errorText.contains('403');
+          if (!shouldRefresh) rethrow;
+
+          final refreshed = await authProvider.refreshTokens();
+          if (!refreshed) rethrow;
+
+          token = authProvider.currentUser?.accessToken ?? '';
+          if (token.isEmpty) {
+            throw Exception('Missing auth token after refresh');
+          }
+          tracks = await loadTracksWithToken(token);
+        }
+
         if (tracks.isEmpty && !_didRetryAfterOpen) {
           _didRetryAfterOpen = true;
           await Future.delayed(const Duration(milliseconds: 700));
-          tracks = await playlistService.getPlaylistTracks(widget.playlistId, token);
+          tracks = await loadTracksWithToken(token);
         }
         if (!mounted) return;
         setState(() {
