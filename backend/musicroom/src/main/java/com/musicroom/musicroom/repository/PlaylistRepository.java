@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
-
     @Query("SELECT p FROM Playlist p JOIN FETCH p.owner WHERE p.owner.id = :ownerId")
     List<Playlist> findByOwnerId(@Param("ownerId") UUID ownerId);
 

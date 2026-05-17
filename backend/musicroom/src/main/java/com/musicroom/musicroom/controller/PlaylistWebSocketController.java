@@ -2,15 +2,15 @@ package com.musicroom.musicroom.controller;
 
 import com.musicroom.musicroom.dto.websocket.AddTrackMessage;
 import com.musicroom.musicroom.dto.websocket.MoveTrackMessage;
-import com.musicroom.musicroom.dto.websocket.PlaylistUpdateMessage;
 import com.musicroom.musicroom.dto.websocket.RemoveTrackMessage;
+import com.musicroom.musicroom.security.JwtTokenProvider;
 import com.musicroom.musicroom.service.PlaylistWebSocketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Controller;
 import java.util.UUID;
 
@@ -19,14 +19,14 @@ import java.util.UUID;
 public class PlaylistWebSocketController {
 
     private final PlaylistWebSocketService playlistWebSocketService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @MessageMapping("/playlist/{playlistId}/add")
     public void addTrack(
             @DestinationVariable UUID playlistId,
             @Payload AddTrackMessage message,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        UUID userId = UUID.fromString(userDetails.getUsername());
+            SimpMessageHeaderAccessor headerAccessor) {
+        UUID userId = resolveUserId(headerAccessor);
         playlistWebSocketService.addTrack(playlistId, userId, message);
     }
 
@@ -34,9 +34,8 @@ public class PlaylistWebSocketController {
     public void removeTrack(
             @DestinationVariable UUID playlistId,
             @Payload RemoveTrackMessage message,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        UUID userId = UUID.fromString(userDetails.getUsername());
+            SimpMessageHeaderAccessor headerAccessor) {
+        UUID userId = resolveUserId(headerAccessor);
         playlistWebSocketService.removeTrack(playlistId, userId, message);
     }
 
@@ -44,9 +43,24 @@ public class PlaylistWebSocketController {
     public void moveTrack(
             @DestinationVariable UUID playlistId,
             @Payload MoveTrackMessage message,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        UUID userId = UUID.fromString(userDetails.getUsername());
+            SimpMessageHeaderAccessor headerAccessor) {
+        UUID userId = resolveUserId(headerAccessor);
         playlistWebSocketService.moveTrack(playlistId, userId, message);
+    }
+
+    private UUID resolveUserId(SimpMessageHeaderAccessor headerAccessor) {
+        Object authHeader = headerAccessor.getFirstNativeHeader("Authorization");
+        if (authHeader == null) {
+            throw new IllegalArgumentException("Missing Authorization header");
+        }
+        String authValue = authHeader.toString();
+        if (!StringUtils.hasText(authValue) || !authValue.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Invalid Authorization header");
+        }
+        String token = authValue.substring(7);
+        if (!jwtTokenProvider.validateToken(token)) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+        return UUID.fromString(jwtTokenProvider.getUserIdFromToken(token));
     }
 }

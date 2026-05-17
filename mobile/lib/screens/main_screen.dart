@@ -3,6 +3,7 @@ import 'home_screen.dart';
 import 'search_screen.dart';
 import 'library_screen.dart';
 import '../widgets/create_menu_bottom_sheet.dart';
+import '../widgets/audio_player_overlay.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -48,6 +49,7 @@ class _MainScreenState extends State<MainScreen> {
       body: Stack(
         children: [
           IndexedStack(index: _selectedIndex, children: screens),
+          const AudioPlayerOverlay(),
           if (_isCreateMenuOpen)
             GestureDetector(
               onTap: () => setState(() => _isCreateMenuOpen = false),

@@ -4,13 +4,20 @@ import '../models/playlist_model.dart';
 import '../models/track_model.dart';
 
 class AudiusService {
-  // Use the standard Audius API redirector
-  static const String baseUrl = 'https://api.audius.co/v1';
+  static const String baseUrl = 'https://discoveryprovider.audius.co/v1';
+  static const String appName = 'MusicRoomApp';
+
+  Uri _buildUri(String path, [Map<String, String>? params]) {
+    return Uri.parse('$baseUrl$path').replace(queryParameters: {
+      'app_name': appName,
+      ...?params,
+    });
+  }
 
   Future<List<Playlist>> getTrendingPlaylists() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/playlists/trending?limit=6'))
+          .get(_buildUri('/playlists/trending', {'limit': '6'}))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -28,7 +35,7 @@ class AudiusService {
   Future<List<Track>> getTrendingTracks() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/tracks/trending?limit=10'))
+          .get(_buildUri('/tracks/trending', {'limit': '10'}))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -48,7 +55,7 @@ class AudiusService {
   Future<Playlist?> getPlaylist(String playlistId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/playlists/$playlistId'),
+        _buildUri('/playlists/$playlistId'),
       );
 
       if (response.statusCode == 200) {
@@ -70,7 +77,7 @@ class AudiusService {
   Future<int> getUsdcTransactionCount(String userId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/users/$userId/transactions/usdc/count'),
+        _buildUri('/users/$userId/transactions/usdc/count'),
       );
 
       if (response.statusCode == 200) {
@@ -86,16 +93,23 @@ class AudiusService {
 
   Future<List<Track>> searchTracks(String query) async {
     try {
-      // Encode query for URL safety
-      final encodedQuery = Uri.encodeComponent(query);
       final response = await http
-          .get(Uri.parse('$baseUrl/tracks/search?query=$encodedQuery'))
+          .get(_buildUri('/tracks/search', {'query': query, 'limit': '25'}))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> tracksJson = data['data'] ?? [];
-        return tracksJson.map((json) => Track.fromJson(json)).toList();
+        return tracksJson
+            .whereType<Map<String, dynamic>>()
+            .map(Track.fromJson)
+            .where(
+              (track) =>
+                  track.isStreamable &&
+                  track.audioUrl != null &&
+                  track.audioUrl!.isNotEmpty,
+            )
+            .toList();
       }
       return [];
     } catch (e) {
@@ -107,10 +121,8 @@ class AudiusService {
   /// Fetches track data from Audius (videos aren't a distinct type, but we can fetch trending)
   Future<List<Track>> getMusicVideos() async {
     try {
-      // Audius doesn't have a specific "videos" endpoint for trending,
-      // but we can fetch high-quality trending tracks as a substitute
       final response = await http
-          .get(Uri.parse('$baseUrl/tracks/trending?limit=5'))
+          .get(_buildUri('/tracks/trending', {'limit': '5'}))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {

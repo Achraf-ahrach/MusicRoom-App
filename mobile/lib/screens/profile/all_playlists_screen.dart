@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../playlist_detail_screen.dart';
 
 class AllPlaylistsScreen extends StatelessWidget {
   final List<Map<String, dynamic>> playlists;
@@ -79,36 +80,51 @@ class AllPlaylistsScreen extends StatelessWidget {
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        color: Colors.grey[800],
-                        child: Icon(Icons.music_note, color: Colors.grey[400], size: 30),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              subtitle,
-                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            ),
-                          ],
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PlaylistDetailScreen(
+                            playlistId: (playlist['id'] ?? '').toString(),
+                            initialPlaylist: playlist['playlist'],
+                            useBackend: true,
+                          ),
                         ),
-                      ),
-                      Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
-                    ],
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          color: Colors.grey[800],
+                          child: Icon(Icons.music_note, color: Colors.grey[400], size: 30),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                subtitle,
+                                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
+                      ],
+                    ),
                   ),
                 );
               },

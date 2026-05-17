@@ -5,6 +5,7 @@ import '../widgets/category_card.dart';
 import '../services/audius_service.dart';
 import '../models/track_model.dart';
 import '../providers/user_profile_provider.dart';
+import '../providers/audio_provider.dart';
 import 'profile/profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -194,6 +195,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             child: TextField(
               controller: _searchController,
+              onChanged: (_) => setState(() {}),
               onSubmitted: _performSearch,
               style: const TextStyle(color: Colors.black),
               decoration: InputDecoration(
@@ -257,10 +259,17 @@ class _SearchScreenState extends State<SearchScreen> {
                 mainAxisSpacing: 12,
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
-                return CategoryCard(
-                  title: _categories[index]['title'],
-                  color: _categories[index]['color'],
-                  imageUrl: _categories[index]['image'],
+                return GestureDetector(
+                  onTap: () {
+                    final title = _categories[index]['title'] as String;
+                    _searchController.text = title;
+                    _performSearch(title);
+                  },
+                  child: CategoryCard(
+                    title: _categories[index]['title'] as String,
+                    color: _categories[index]['color'] as Color,
+                    imageUrl: _categories[index]['image'] as String,
+                  ),
                 );
               }, childCount: _categories.length),
             ),
@@ -332,7 +341,26 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 trailing: const Icon(Icons.more_vert, color: Colors.grey),
                 onTap: () {
-                  // Handle track selection - maybe play it?
+                  if (track.audioUrl == null || track.audioUrl!.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'This track is not currently streamable on Audius.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final audioProvider = Provider.of<AudioProvider>(
+                    context,
+                    listen: false,
+                  );
+                  audioProvider.playTrack(
+                    track,
+                    playlist: _searchResults,
+                    index: index,
+                  );
                 },
               );
             }, childCount: _searchResults.length),
