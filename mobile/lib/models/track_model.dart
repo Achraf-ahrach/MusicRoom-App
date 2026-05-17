@@ -41,13 +41,18 @@ class Track {
   }
 
   factory Track.fromPlaylistTrackJson(Map<String, dynamic> json) {
+    final String? externalId = json['externalId']?.toString();
+    final String? fallbackStreamUrl = externalId != null && externalId.isNotEmpty
+        ? 'https://discoveryprovider.audius.co/v1/tracks/$externalId/stream?app_name=MusicRoomApp'
+        : null;
+
     return Track(
-      id: (json['id'] ?? '').toString(),
+      id: externalId ?? (json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       imageUrl: json['coverUrl'] as String?,
       artistName: (json['artist'] ?? 'Unknown Artist').toString(),
-      audioUrl: null,
-      isStreamable: false,
+      audioUrl: fallbackStreamUrl,
+      isStreamable: true,
       description: null,
     );
   }

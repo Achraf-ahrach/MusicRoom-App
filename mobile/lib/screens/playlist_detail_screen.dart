@@ -7,6 +7,8 @@ import '../../services/playlist_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/audio_player_overlay.dart';
+
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String playlistId;
@@ -95,129 +97,162 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : _errorMessage != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
-              ),
-            )
-          : _playlist == null
-          ? const Center(
-              child: Text(
-                'Playlist not found',
-                style: TextStyle(color: Colors.white),
-              ),
-            )
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  // Playlist Artwork
-                  if (_playlist!.imageUrl != null)
-                    Center(
-                      child: Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+      body: Stack(
+        children: [
+          _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Colors.white))
+              : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                )
+              : _playlist == null
+              ? const Center(
+                  child: Text(
+                    'Playlist not found',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      // Playlist Artwork
+                      if (_playlist!.imageUrl != null)
+                        Center(
+                          child: Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Image.network(
+                              _playlist!.imageUrl!,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                      // Playlist Info
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _playlist!.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'By ${_playlist!.creatorName}',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 16,
+                              ),
                             ),
                           ],
                         ),
-                        child: Image.network(
-                          _playlist!.imageUrl!,
-                          fit: BoxFit.cover,
-                        ),
                       ),
-                    ),
-                  const SizedBox(height: 24),
-                  // Playlist Info
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _playlist!.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                      const SizedBox(height: 24),
+                      if (widget.useBackend)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Tracks (${_tracks.length})',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'By ${_playlist!.creatorName}',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 16,
+                      if (widget.useBackend) const SizedBox(height: 10),
+                      if (widget.useBackend && _tracks.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'No tracks in this playlist yet.',
+                              style: TextStyle(color: Colors.white70),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                      if (widget.useBackend && _tracks.isNotEmpty)
+                        ..._tracks.asMap().entries.map(
+                          (entry) => _buildTrackTile(entry.key, entry.value),
+                        ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  if (widget.useBackend)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Tracks (${_tracks.length})',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (widget.useBackend) const SizedBox(height: 10),
-                  if (widget.useBackend && _tracks.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'No tracks in this playlist yet.',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    ),
-                  if (widget.useBackend && _tracks.isNotEmpty)
-                    ..._tracks.asMap().entries.map(
-                      (entry) => _buildTrackTile(entry.key, entry.value),
-                    ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
+                ),
+          const AudioPlayerOverlay(),
+        ],
+      ),
     );
   }
 
   Widget _buildTrackTile(int index, Track track) {
     return ListTile(
-      leading: SizedBox(
-        width: 38,
-        child: Text(
-          '${index + 1}',
-          style: const TextStyle(color: Colors.white60),
-        ),
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 25,
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(color: Colors.white60),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: track.imageUrl != null && track.imageUrl!.isNotEmpty
+                ? Image.network(
+                    track.imageUrl!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[900],
+                      width: 44,
+                      height: 44,
+                      child: const Icon(Icons.music_note, color: Colors.grey, size: 20),
+                    ),
+                  )
+                : Container(
+                    color: Colors.grey[900],
+                    width: 44,
+                    height: 44,
+                    child: const Icon(Icons.music_note, color: Colors.grey, size: 20),
+                  ),
+          ),
+        ],
       ),
       title: Text(
         track.title,
@@ -235,7 +270,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       onTap: track.audioUrl == null
           ? null
           : () {
-              Provider.of<AudioProvider>(context, listen: false).playTrack(
+              final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+              audioProvider.playTrack(
                 track,
                 playlist: _tracks,
                 index: index,

@@ -212,6 +212,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     private PlaylistTrackDto toTrackDto(PlaylistTrack pt) {
         return PlaylistTrackDto.builder()
                 .id(pt.getId())
+                .externalId(pt.getTrack().getExternalId())
                 .title(pt.getTrack().getTitle())
                 .artist(pt.getTrack().getArtist())
                 .album(pt.getTrack().getAlbum())
