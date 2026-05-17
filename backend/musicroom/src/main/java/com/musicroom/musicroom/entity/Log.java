@@ -39,5 +39,6 @@ public class Log {
     private String ipAddress;
 
     @Column(name = "created_at", updatable = false)
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }

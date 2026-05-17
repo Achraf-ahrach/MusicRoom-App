@@ -13,7 +13,8 @@ public interface DelegationService {
 
     DelegationResponseDto createDelegation(
             UUID ownerId,
-            CreateDelegationRequestDto request
+            CreateDelegationRequestDto request,
+            String ipAddress
     );
 
     List<DelegationResponseDto> getDelegations(
@@ -24,12 +25,14 @@ public interface DelegationService {
     DelegationResponseDto updatePermission(
             UUID delegationId,
             UUID ownerId,
-            UpdatePermissionDto request
+            UpdatePermissionDto request,
+            String ipAddress
     );
 
     void removeDelegation(
             UUID delegationId,
-            UUID ownerId
+            UUID ownerId,
+            String ipAddress
     );
 
     boolean hasPermission(
