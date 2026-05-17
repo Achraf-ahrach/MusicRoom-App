@@ -38,6 +38,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   bool _didRetryAfterOpen = false;
   bool _isSaved = false;
   String? _ownerAvatarUrl;
+  List<dynamic> _collaborators = [];
 
   @override
   void initState() {
@@ -84,12 +85,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           }
         }
 
+        List<dynamic> collaborators = [];
+        try {
+          collaborators = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
+        } catch (e) {
+          debugPrint('Error fetching collaborators: $e');
+        }
+
         if (!mounted) return;
         setState(() {
           _playlist = freshPlaylist;
           _tracks = tracks;
           _isSaved = isSaved;
           _ownerAvatarUrl = ownerAvatarUrl;
+          _collaborators = collaborators;
           _isLoading = false;
         });
         return;
@@ -131,6 +140,212 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         SnackBar(content: Text('Failed to update save status: $e')),
       );
     }
+  }
+
+  void _showCollaboratorsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final isOwner = _playlist?.ownerId == auth.currentUser?.id;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            // Combine Owner and Collaborators in a single beautifully structured list
+            final List<Map<String, dynamic>> listItems = [];
+            if (_playlist != null) {
+              listItems.add({
+                'userId': _playlist!.ownerId,
+                'displayName': _playlist!.creatorName,
+                'avatarUrl': _ownerAvatarUrl ?? '',
+                'permission': 'owner',
+                'isOwner': true,
+              });
+            }
+            for (var c in _collaborators) {
+              listItems.add({
+                'userId': c['userId'] as String,
+                'displayName': c['displayName'] as String? ?? 'User',
+                'avatarUrl': c['avatarUrl'] as String? ?? '',
+                'permission': c['permission'] as String? ?? 'editor',
+                'isOwner': false,
+              });
+            }
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Playlist Collaborators (${listItems.length})',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: listItems.length,
+                      itemBuilder: (context, idx) {
+                        final item = listItems[idx];
+                        final userId = item['userId'] as String;
+                        final displayName = item['displayName'] as String;
+                        final avatarUrl = item['avatarUrl'] as String;
+                        final permission = item['permission'] as String;
+                        final isOwnerRole = item['isOwner'] as bool;
+
+                        final isMe = userId == auth.currentUser?.id;
+
+                        return ListTile(
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => UserPublicProfileScreen(
+                                  userId: userId,
+                                  displayName: displayName,
+                                ),
+                              ),
+                            );
+                          },
+                          leading: CircleAvatar(
+                            radius: 20,
+                            backgroundImage: avatarUrl.isNotEmpty && !avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            backgroundColor: Colors.white.withValues(alpha: 0.1),
+                            child: avatarUrl.isEmpty || avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                                ? const Icon(Icons.person, color: Colors.white70)
+                                : null,
+                          ),
+                          title: Text(
+                            '$displayName ${isMe ? "(You)" : ""}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            permission.toUpperCase(),
+                            style: TextStyle(
+                              color: isOwnerRole
+                                  ? AppTheme.accent
+                                  : permission == 'editor'
+                                      ? const Color(0xFF1DB954) // Spotify Green
+                                      : Colors.white60,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          trailing: isOwner && !isMe && !isOwnerRole
+                              ? PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert, color: Colors.white70),
+                                  color: AppTheme.surface,
+                                  onSelected: (value) async {
+                                    final token = auth.currentUser?.accessToken;
+                                    if (token == null) return;
+                                    final playlistService = PlaylistService();
+
+                                    try {
+                                      if (value == 'make_editor') {
+                                        await playlistService.updateCollaboratorRole(
+                                          widget.playlistId,
+                                          userId,
+                                          'editor',
+                                          token,
+                                        );
+                                      } else if (value == 'make_viewer') {
+                                        await playlistService.updateCollaboratorRole(
+                                          widget.playlistId,
+                                          userId,
+                                          'viewer',
+                                          token,
+                                        );
+                                      } else if (value == 'remove') {
+                                        await playlistService.removeCollaborator(
+                                          widget.playlistId,
+                                          userId,
+                                          token,
+                                        );
+                                      }
+
+                                      // Refresh state
+                                      final freshColabs = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
+                                      
+                                      setState(() {
+                                        _collaborators = freshColabs;
+                                      });
+                                      setModalState(() {});
+
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: const Text('Collaborator updated successfully!'),
+                                            backgroundColor: AppTheme.accent,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    if (permission != 'editor')
+                                      const PopupMenuItem(
+                                        value: 'make_editor',
+                                        child: Text('Change to Editor', style: TextStyle(color: Colors.white)),
+                                      ),
+                                    if (permission != 'viewer')
+                                      const PopupMenuItem(
+                                        value: 'make_viewer',
+                                        child: Text('Change to Viewer', style: TextStyle(color: Colors.white)),
+                                      ),
+                                    const PopupMenuDivider(height: 1),
+                                    const PopupMenuItem(
+                                      value: 'remove',
+                                      child: Text('Remove Collaborator', style: TextStyle(color: Colors.redAccent)),
+                                    ),
+                                  ],
+                                )
+                              : isOwnerRole
+                                  ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
+                                  : null,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -391,7 +606,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       const SizedBox(height: 24),
                       // Playlist Info
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.only(left: 0, right: 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -415,102 +630,144 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ),
                             ],
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: widget.useBackend && _playlist!.ownerId.isNotEmpty
-                                      ? () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => UserPublicProfileScreen(
-                                              userId: _playlist!.ownerId,
-                                              displayName: _playlist!.creatorName,
+                            Builder(
+                              builder: (context) {
+                                final editors = widget.useBackend
+                                    ? _collaborators.where((c) => c['permission'] == 'editor').toList()
+                                    : [];
+                                
+                                // Avatars stack
+                                final List<String?> displayAvatars = [];
+                                if (widget.useBackend) {
+                                  displayAvatars.add(_ownerAvatarUrl);
+                                  for (var ed in editors) {
+                                    displayAvatars.add(ed['avatarUrl'] as String?);
+                                  }
+                                }
+
+                                final int trackCount = _tracks.length;
+                                final String trackText = trackCount == 1 ? '1 song' : '$trackCount songs';
+
+                                // Names list
+                                String names = _playlist!.creatorName;
+                                if (editors.isNotEmpty) {
+                                  if (editors.length == 1) {
+                                    names += ' & ${editors[0]['displayName'] ?? 'User'}';
+                                  } else {
+                                    names += ' & ${editors.length} others';
+                                  }
+                                }
+
+                                return Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  runSpacing: 8,
+                                  spacing: 8,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: _showCollaboratorsBottomSheet,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (displayAvatars.isNotEmpty) ...[
+                                            SizedBox(
+                                              width: displayAvatars.length == 1
+                                                  ? 20
+                                                  : displayAvatars.length == 2
+                                                      ? 30
+                                                      : 40,
+                                              height: 20,
+                                              child: Stack(
+                                                children: List.generate(
+                                                  displayAvatars.length > 3 ? 3 : displayAvatars.length,
+                                                  (index) {
+                                                    final url = displayAvatars[index];
+                                                    return Positioned(
+                                                      left: index * 10.0,
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          border: Border.all(color: AppTheme.background, width: 1.5),
+                                                        ),
+                                                        child: CircleAvatar(
+                                                          radius: 8.5,
+                                                          backgroundImage: url != null && url.isNotEmpty && !url.contains('photo-1535713875002-d1d0cf377fde')
+                                                              ? NetworkImage(url)
+                                                              : null,
+                                                          backgroundColor: Colors.grey[800],
+                                                          child: url == null || url.isEmpty || url.contains('photo-1535713875002-d1d0cf377fde')
+                                                              ? const Icon(Icons.person, size: 8, color: Colors.white70)
+                                                              : null,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                          ] else ...[
+                                            CircleAvatar(
+                                              radius: 10,
+                                              backgroundColor: Colors.white.withValues(alpha: 0.1),
+                                              child: const Icon(
+                                                Icons.person,
+                                                size: 11,
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          Text(
+                                            names,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                        )
-                                      : null,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (widget.useBackend && _ownerAvatarUrl != null && _ownerAvatarUrl!.isNotEmpty && !_ownerAvatarUrl!.contains('photo-1535713875002-d1d0cf377fde')) ...[
-                                        CircleAvatar(
-                                          radius: 12,
-                                          backgroundImage: NetworkImage(_ownerAvatarUrl!),
-                                          backgroundColor: Colors.transparent,
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ] else if (widget.useBackend) ...[
-                                        CircleAvatar(
-                                          radius: 12,
-                                          backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                          child: const Icon(
-                                            Icons.person,
-                                            size: 14,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
-                                      Text(
-                                        'By ${_playlist!.creatorName}',
-                                        style: TextStyle(
-                                          color: widget.useBackend
-                                              ? AppTheme.accent
-                                              : Colors.white.withValues(alpha: 0.7),
-                                          fontSize: 16,
-                                          decoration: widget.useBackend
-                                              ? TextDecoration.underline
-                                              : null,
-                                          decorationColor: AppTheme.accent,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (widget.useBackend) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: _playlist!.visibility == 'private'
-                                          ? Colors.redAccent.withValues(alpha: 0.15)
-                                          : AppTheme.accent.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: _playlist!.visibility == 'private'
-                                            ? Colors.redAccent
-                                            : AppTheme.accent,
-                                        width: 1,
+                                        ],
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _playlist!.visibility == 'private'
-                                              ? Icons.lock_outline_rounded
-                                              : Icons.public_rounded,
-                                          size: 11,
-                                          color: _playlist!.visibility == 'private'
-                                              ? Colors.redAccent
-                                              : AppTheme.accent,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _playlist!.visibility == 'private' ? 'Private' : 'Public',
-                                          style: TextStyle(
-                                            color: _playlist!.visibility == 'private'
-                                                ? Colors.redAccent
-                                                : AppTheme.accent,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
+                                    Text(
+                                      '• $trackText',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.6),
+                                        fontSize: 13,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ],
+                                    if (widget.useBackend)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.5),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              _playlist!.visibility == 'private'
+                                                  ? Icons.lock_outline_rounded
+                                                  : Icons.public_rounded,
+                                              size: 10,
+                                              color: Colors.white60,
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              _playlist!.visibility == 'private' ? 'Private' : 'Public',
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),

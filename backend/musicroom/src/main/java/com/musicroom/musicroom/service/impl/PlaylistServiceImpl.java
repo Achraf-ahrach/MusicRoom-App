@@ -304,4 +304,60 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .map(sp -> toDto(sp.getPlaylist()))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PlaylistCollaboratorDto> getPlaylistCollaborators(UUID playlistId, UUID userId) {
+        Playlist playlist = playlistRepo.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        if (playlist.getVisibility().equals("private") &&
+            !playlist.getOwner().getId().equals(userId) &&
+            !inviteRepo.existsByPlaylistIdAndUserId(playlistId, userId)) {
+            throw new UnauthorizedException("Access denied to this playlist");
+        }
+
+        return inviteRepo.findByPlaylistId(playlistId)
+                .stream()
+                .map(invite -> PlaylistCollaboratorDto.builder()
+                        .userId(invite.getUser().getId())
+                        .displayName(invite.getUser().getDisplayName())
+                        .avatarUrl(invite.getUser().getAvatarUrl())
+                        .permission(invite.getPermission())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void updateCollaboratorRole(UUID ownerId, UUID playlistId, UUID collaboratorId, String permission) {
+        Playlist playlist = playlistRepo.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        if (!playlist.getOwner().getId().equals(ownerId)) {
+            throw new UnauthorizedException("Only the playlist owner can change roles");
+        }
+
+        PlaylistInvite invite = inviteRepo.findByPlaylistIdAndUserId(playlistId, collaboratorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
+
+        invite.setPermission(permission);
+        inviteRepo.save(invite);
+    }
+
+    @Override
+    @Transactional
+    public void removeCollaborator(UUID ownerId, UUID playlistId, UUID collaboratorId) {
+        Playlist playlist = playlistRepo.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        if (!playlist.getOwner().getId().equals(ownerId)) {
+            throw new UnauthorizedException("Only the playlist owner can remove collaborators");
+        }
+
+        PlaylistInvite invite = inviteRepo.findByPlaylistIdAndUserId(playlistId, collaboratorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
+
+        inviteRepo.delete(invite);
+    }
 }

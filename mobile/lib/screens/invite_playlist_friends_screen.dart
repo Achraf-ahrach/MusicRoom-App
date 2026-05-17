@@ -20,6 +20,7 @@ class _InvitePlaylistFriendsScreenState extends State<InvitePlaylistFriendsScree
   List<dynamic> _following = [];
   List<dynamic> _searchResults = [];
   final Set<String> _selectedCollaborators = {};
+  final Set<String> _existingCollaboratorIds = {};
   String _permission = 'editor'; // Default to editor for collaborators
   final TextEditingController _searchController = TextEditingController();
 
@@ -46,6 +47,27 @@ class _InvitePlaylistFriendsScreenState extends State<InvitePlaylistFriendsScree
       final currentUser = await UserService().getCurrentUserProfile(token);
       final followers = await FollowService().getFollowers(currentUser.id, token);
       final following = await FollowService().getFollowing(currentUser.id, token);
+
+      final playlistService = PlaylistService();
+      try {
+        final playlist = await playlistService.getPlaylistById(widget.playlistId, token);
+        _existingCollaboratorIds.add(playlist.ownerId);
+      } catch (e) {
+        debugPrint('Error loading playlist owner: $e');
+      }
+
+      try {
+        final collaborators = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
+        for (var c in collaborators) {
+          final cid = c['userId'] as String?;
+          if (cid != null) {
+            _existingCollaboratorIds.add(cid);
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading existing collaborators: $e');
+      }
+
       setState(() {
         _followers = followers;
         _following = following;
@@ -89,14 +111,44 @@ class _InvitePlaylistFriendsScreenState extends State<InvitePlaylistFriendsScree
       _isLoading = true;
     });
 
+    int successCount = 0;
+    int conflictCount = 0;
+    String? lastError;
+
     try {
       final playlistService = PlaylistService();
       for (String collaboratorId in _selectedCollaborators) {
-        await playlistService.inviteUserToPlaylist(widget.playlistId, collaboratorId, _permission, token);
+        try {
+          await playlistService.inviteUserToPlaylist(widget.playlistId, collaboratorId, _permission, token);
+          successCount++;
+        } catch (e) {
+          if (e.toString().contains('409')) {
+            conflictCount++;
+          } else {
+            lastError = e.toString();
+          }
+        }
       }
+
       if (mounted) {
+        if (lastError != null && successCount == 0) {
+          throw Exception(lastError);
+        }
+
+        String msg = 'Collaborators updated!';
+        if (successCount > 0 && conflictCount > 0) {
+          msg = 'Successfully invited $successCount collaborators (others were already added).';
+        } else if (successCount > 0) {
+          msg = 'Collaborators invited successfully!';
+        } else if (conflictCount > 0) {
+          msg = 'Selected users are already collaborators.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Collaborators added successfully!')),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppTheme.accent,
+          ),
         );
         Navigator.pop(context);
       }
@@ -106,13 +158,48 @@ class _InvitePlaylistFriendsScreenState extends State<InvitePlaylistFriendsScree
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add collaborators: $e'))
+          SnackBar(content: Text('Failed to add collaborators: $e')),
         );
       }
     }
   }
 
   Widget _buildUserTile(String userId, String displayName, String? avatarUrl, bool isSelected) {
+    if (_existingCollaboratorIds.contains(userId)) {
+      return ListTile(
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+              ? NetworkImage(avatarUrl)
+              : null,
+          backgroundColor: Colors.grey[800],
+          child: avatarUrl == null || avatarUrl.isEmpty || avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+              ? const Icon(Icons.person, color: Colors.white)
+              : null,
+        ),
+        title: Text(
+          displayName,
+          style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.w600),
+        ),
+        subtitle: const Text(
+          'Already Added',
+          style: TextStyle(color: Colors.white38, fontSize: 12),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white10,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white24, width: 0.5),
+          ),
+          child: const Text(
+            'Added',
+            style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+
     return CheckboxListTile(
       secondary: CircleAvatar(
         radius: 20,

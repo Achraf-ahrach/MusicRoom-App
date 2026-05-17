@@ -150,4 +150,36 @@ public class PlaylistController {
         UUID userId = UUID.fromString(userDetails.getUsername());
         return ResponseEntity.ok(playlistService.getSavedPlaylists(userId));
     }
+
+    @Operation(summary = "Obtenir les collaborateurs d'une playlist")
+    @GetMapping("/{id}/collaborators")
+    public ResponseEntity<List<PlaylistCollaboratorDto>> getPlaylistCollaborators(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(playlistService.getPlaylistCollaborators(id, userId));
+    }
+
+    @Operation(summary = "Modifier le rôle d'un collaborateur d'une playlist")
+    @PutMapping("/{id}/collaborators/{collaboratorId}")
+    public ResponseEntity<Void> updateCollaboratorRole(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @PathVariable UUID collaboratorId,
+            @RequestBody UpdatePlaylistCollaboratorRoleRequest request) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        playlistService.updateCollaboratorRole(userId, id, collaboratorId, request.getPermission());
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Retirer un collaborateur d'une playlist")
+    @DeleteMapping("/{id}/collaborators/{collaboratorId}")
+    public ResponseEntity<Void> removeCollaborator(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @PathVariable UUID collaboratorId) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        playlistService.removeCollaborator(userId, id, collaboratorId);
+        return ResponseEntity.noContent().build();
+    }
 }

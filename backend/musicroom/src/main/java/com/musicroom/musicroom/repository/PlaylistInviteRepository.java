@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface PlaylistInviteRepository extends JpaRepository<PlaylistInvite, UUID> {
     boolean existsByPlaylistIdAndUserId(UUID playlistId, UUID userId);
     Optional<PlaylistInvite> findByPlaylistIdAndUserId(UUID playlistId, UUID userId);
+    java.util.List<PlaylistInvite> findByPlaylistId(UUID playlistId);
 }

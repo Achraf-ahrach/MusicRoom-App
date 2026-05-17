@@ -22,4 +22,8 @@ public interface PlaylistService {
     void unsavePlaylist(UUID userId, UUID playlistId);
     boolean isPlaylistSaved(UUID userId, UUID playlistId);
     List<PlaylistDto> getSavedPlaylists(UUID userId);
+
+    List<PlaylistCollaboratorDto> getPlaylistCollaborators(UUID playlistId, UUID userId);
+    void updateCollaboratorRole(UUID ownerId, UUID playlistId, UUID collaboratorId, String permission);
+    void removeCollaborator(UUID ownerId, UUID playlistId, UUID collaboratorId);
 }

@@ -361,4 +361,41 @@ class PlaylistService {
       );
     }
   }
+
+  // Get all collaborators
+  Future<List<dynamic>> getPlaylistCollaborators(String playlistId, String token) async {
+    final response = await http.get(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/collaborators'),
+      headers: _headers(token),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    }
+    throw Exception('Failed to load collaborators (${response.statusCode})');
+  }
+
+  // Update collaborator role
+  Future<void> updateCollaboratorRole(String playlistId, String collaboratorId, String permission, String token) async {
+    final response = await http.put(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/collaborators/$collaboratorId'),
+      headers: _headers(token),
+      body: jsonEncode({
+        'permission': permission,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update role (${response.statusCode})');
+    }
+  }
+
+  // Remove collaborator
+  Future<void> removeCollaborator(String playlistId, String collaboratorId, String token) async {
+    final response = await http.delete(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/collaborators/$collaboratorId'),
+      headers: _headers(token),
+    );
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Failed to remove collaborator (${response.statusCode})');
+    }
+  }
 }
