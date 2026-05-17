@@ -201,6 +201,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   void _showAddTrackSheet() {
+    if (_tracks.length >= 15) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(
+            'Queue is full (15/15)! Upvote existing tracks to hear them next.',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -209,6 +221,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         eventId: widget.eventId,
         eventService: _eventService,
         audiusService: _audiusService,
+        currentQueueLength: _tracks.length,
         onTrackAdded: () {
           _refreshPlaylist();
         },
@@ -471,6 +484,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.people_outline, color: Colors.grey[400], size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${_eventDetails?['participantCount'] ?? 1} listeners in the room',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           description,
                           style: TextStyle(
@@ -509,14 +537,40 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ],
                         ),
                         const SizedBox(height: 24),
-                        const Text(
-                          'Live Queue',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Live Queue',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _tracks.length >= 15
+                                    ? Colors.redAccent.withOpacity(0.2)
+                                    : Colors.green.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _tracks.length >= 15 ? Colors.redAccent : Colors.green,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                '${_tracks.length}/15',
+                                style: TextStyle(
+                                  color: _tracks.length >= 15 ? Colors.redAccent : Colors.greenAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -560,6 +614,26 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           final String coverUrl = entry['coverUrl'] ?? '';
                           final int voteCount = entry['voteCount'] ?? 0;
                           final String suggestedByName = entry['suggestedByName'] ?? '';
+
+                          final votedList = entry['votedUsers'] as List<dynamic>? ?? [];
+                          final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
+                          int userVoteVal = 0;
+                          for (var voteObj in votedList) {
+                            if (voteObj is Map && voteObj['userId']?.toString() == currentUserId) {
+                              userVoteVal = voteObj['value'] as int? ?? 0;
+                            }
+                          }
+                          final bool hasUpvoted = userVoteVal == 1;
+                          final bool hasDownvoted = userVoteVal == -1;
+
+                          final upvoters = votedList
+                              .where((v) => v is Map && v['value'] == 1)
+                              .map((v) => (v as Map)['displayName']?.toString() ?? 'User')
+                              .toList();
+                          final downvoters = votedList
+                              .where((v) => v is Map && v['value'] == -1)
+                              .map((v) => (v as Map)['displayName']?.toString() ?? 'User')
+                              .toList();
 
                           final track = Track.fromPlaylistTrackJson(entry);
 
@@ -654,7 +728,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                      ]
+                                      ],
+                                      if (upvoters.isNotEmpty || downvoters.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Votes: ${upvoters.isNotEmpty ? '▲ ${upvoters.join(', ')}' : ''}${upvoters.isNotEmpty && downvoters.isNotEmpty ? '  ' : ''}${downvoters.isNotEmpty ? '▼ ${downvoters.join(', ')}' : ''}',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.5),
+                                            fontSize: 10,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -674,10 +760,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   children: [
                                     // Downvote
                                     IconButton(
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.arrow_downward_rounded,
                                         size: 20,
-                                        color: Colors.grey,
+                                        color: hasDownvoted ? Colors.redAccent : Colors.grey,
                                       ),
                                       onPressed: () => _sendVote(entryId, -1),
                                     ),
@@ -709,10 +795,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                     // Upvote
                                     IconButton(
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.arrow_upward_rounded,
                                         size: 20,
-                                        color: Colors.greenAccent,
+                                        color: hasUpvoted ? Colors.greenAccent : Colors.white70,
                                       ),
                                       onPressed: () => _sendVote(entryId, 1),
                                     ),
@@ -815,12 +901,14 @@ class _EventAddTrackModal extends StatefulWidget {
   final EventService eventService;
   final AudiusService audiusService;
   final VoidCallback onTrackAdded;
+  final int currentQueueLength;
 
   const _EventAddTrackModal({
     required this.eventId,
     required this.eventService,
     required this.audiusService,
     required this.onTrackAdded,
+    required this.currentQueueLength,
   });
 
   @override
@@ -830,8 +918,37 @@ class _EventAddTrackModal extends StatefulWidget {
 class _EventAddTrackModalState extends State<_EventAddTrackModal> {
   final TextEditingController _searchController = TextEditingController();
   List<Track> _searchResults = [];
+  List<Track> _randomTracks = [];
   bool _isLoading = false;
+  bool _isLoadingRandom = false;
   bool _isSuggesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRandomTracks();
+  }
+
+  void _loadRandomTracks() async {
+    setState(() {
+      _isLoadingRandom = true;
+    });
+    try {
+      final tracks = await widget.audiusService.getRandomTracks();
+      if (mounted) {
+        setState(() {
+          _randomTracks = tracks;
+          _isLoadingRandom = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRandom = false;
+        });
+      }
+    }
+  }
 
   void _performSearch(String query) async {
     if (query.trim().isEmpty) return;
@@ -861,6 +978,19 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
   }
 
   Future<void> _suggestTrack(Track track) async {
+    if (widget.currentQueueLength >= 15) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(
+            'Queue is full (15/15)! Upvote existing tracks to hear them next.',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSuggesting = true;
     });
@@ -960,6 +1090,9 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
                   icon: const Icon(Icons.clear, color: Colors.grey),
                   onPressed: () {
                     _searchController.clear();
+                    setState(() {
+                      _searchResults = [];
+                    });
                   },
                 ),
                 border: OutlineInputBorder(
@@ -971,75 +1104,122 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
             const SizedBox(height: 20),
             // Search Results or Loading
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.green))
-                  : (_searchResults.isEmpty
-                      ? Center(
-                          child: Text(
-                            _searchController.text.isEmpty
-                                ? 'Type something to search'
-                                : 'No results found',
-                            style: const TextStyle(color: Colors.grey),
+              child: _searchController.text.trim().isEmpty
+                  ? (_isLoadingRandom
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(color: Colors.green),
+                              SizedBox(height: 12),
+                              Text(
+                                'Loading trending suggestions...',
+                                style: TextStyle(color: Colors.grey, fontSize: 13),
+                              ),
+                            ],
                           ),
                         )
-                      : ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: _searchResults.length,
-                          itemBuilder: (context, index) {
-                            final track = _searchResults[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: track.imageUrl != null && track.imageUrl!.isNotEmpty
-                                    ? Image.network(
-                                        track.imageUrl!,
-                                        width: 45,
-                                        height: 45,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Container(
-                                        color: Colors.grey[900],
-                                        width: 45,
-                                        height: 45,
-                                        child: const Icon(Icons.music_note, color: Colors.grey),
-                                      ),
+                      : _randomTracks.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Type something to search',
+                                style: TextStyle(color: Colors.grey),
                               ),
-                              title: Text(
-                                track.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 12),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.local_fire_department, color: Colors.amber, size: 18),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Trending Suggestions',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                Expanded(child: _buildTrackList(_randomTracks)),
+                              ],
+                            ))
+                  : _isLoading
+                      ? const Center(child: CircularProgressIndicator(color: Colors.green))
+                      : (_searchResults.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No results found',
+                                style: TextStyle(color: Colors.grey),
                               ),
-                              subtitle: Text(
-                                track.artistName,
-                                style: TextStyle(color: Colors.grey[400]),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: _isSuggesting
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.green,
-                                      ),
-                                    )
-                                  : IconButton(
-                                      icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent),
-                                      onPressed: () => _suggestTrack(track),
-                                    ),
-                            );
-                          },
-                        )),
+                            )
+                          : _buildTrackList(_searchResults)),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTrackList(List<Track> tracks) {
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      itemCount: tracks.length,
+      itemBuilder: (context, index) {
+        final track = tracks[index];
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: track.imageUrl != null && track.imageUrl!.isNotEmpty
+                ? Image.network(
+                    track.imageUrl!,
+                    width: 45,
+                    height: 45,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    color: Colors.grey[900],
+                    width: 45,
+                    height: 45,
+                    child: const Icon(Icons.music_note, color: Colors.grey),
+                  ),
+          ),
+          title: Text(
+            track.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            track.artistName,
+            style: TextStyle(color: Colors.grey[400]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: _isSuggesting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.green,
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent),
+                  onPressed: () => _suggestTrack(track),
+                ),
+        );
+      },
     );
   }
 }

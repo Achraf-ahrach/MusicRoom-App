@@ -858,115 +858,72 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   Widget _buildTrackTile(int index, Track track) {
-    return ListTile(
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 25,
-            child: Text(
-              '${index + 1}',
-              style: const TextStyle(color: Colors.white60),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: track.imageUrl != null && track.imageUrl!.isNotEmpty
-                ? Image.network(
-                    track.imageUrl!,
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[900],
-                      width: 44,
-                      height: 44,
-                      child: const Icon(Icons.music_note, color: Colors.grey, size: 20),
-                    ),
-                  )
-                : Container(
-                    color: Colors.grey[900],
-                    width: 44,
-                    height: 44,
-                    child: const Icon(Icons.music_note, color: Colors.grey, size: 20),
-                  ),
-          ),
-        ],
-      ),
-      title: Text(
-        track.title,
-        style: const TextStyle(color: Colors.white),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        track.artistName,
-        style: const TextStyle(color: Colors.white60),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Builder(
-        builder: (context) {
-          final auth = Provider.of<AuthProvider>(context, listen: false);
-          final isOwner = _playlist?.ownerId == auth.currentUser?.id;
-          final isEditor = _playlist?.permission == 'editor';
-          final hasEditPermission = isOwner || isEditor;
+    final trailingWidget = Builder(
+      builder: (context) {
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final isOwner = _playlist?.ownerId == auth.currentUser?.id;
+        final isEditor = _playlist?.permission == 'editor';
+        final hasEditPermission = isOwner || isEditor;
 
-          if (widget.useBackend && hasEditPermission && track.playlistTrackId != null) {
-            return PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white54),
-              color: AppTheme.surface,
-              onSelected: (value) async {
-                if (value == 'remove_track') {
-                  try {
-                    setState(() => _isLoading = true);
-                    final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
-                    await playlistProvider.removeTrackFromPlaylist(
-                      _playlist!,
-                      track.playlistTrackId!,
-                      auth.currentUser,
+        if (widget.useBackend && hasEditPermission && track.playlistTrackId != null) {
+          return PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white54),
+            color: AppTheme.surface,
+            onSelected: (value) async {
+              if (value == 'remove_track') {
+                try {
+                  setState(() => _isLoading = true);
+                  final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
+                  await playlistProvider.removeTrackFromPlaylist(
+                    _playlist!,
+                    track.playlistTrackId!,
+                    auth.currentUser,
+                  );
+                  
+                  setState(() {
+                    _tracks.removeAt(index);
+                    _isLoading = false;
+                  });
+                  
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Track removed successfully'),
+                      ),
                     );
-                    
-                    setState(() {
-                      _tracks.removeAt(index);
-                      _isLoading = false;
-                    });
-                    
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Track removed successfully'),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    setState(() => _isLoading = false);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to remove track: $e')),
-                      );
-                    }
+                  }
+                } catch (e) {
+                  setState(() => _isLoading = false);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to remove track: $e')),
+                    );
                   }
                 }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem<String>(
-                  value: 'remove_track',
-                  child: Row(
-                    children: [
-                      Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
-                      SizedBox(width: 12),
-                      Text('Remove Track', style: TextStyle(color: Colors.redAccent)),
-                    ],
-                  ),
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'remove_track',
+                child: Row(
+                  children: [
+                    Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+                    SizedBox(width: 12),
+                    Text('Remove Track', style: TextStyle(color: Colors.redAccent)),
+                  ],
                 ),
-              ],
-            );
-          }
-          return const Icon(Icons.music_note_rounded, color: Colors.white54);
+              ),
+            ],
+          );
         }
-      ),
+        return const Padding(
+          padding: EdgeInsets.all(12.0),
+          child: Icon(Icons.music_note_rounded, color: Colors.white54, size: 20),
+        );
+      },
+    );
+
+    return InkWell(
       onTap: track.audioUrl == null
           ? null
           : () {
@@ -977,6 +934,69 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 index: index,
               );
             },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            // Rank Number
+            SizedBox(
+              width: 25,
+              child: Text(
+                '${index + 1}',
+                style: const TextStyle(color: Colors.white60, fontSize: 14),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Cover Art
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: track.imageUrl != null && track.imageUrl!.isNotEmpty
+                  ? Image.network(
+                      track.imageUrl!,
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[900],
+                        width: 44,
+                        height: 44,
+                        child: const Icon(Icons.music_note, color: Colors.grey, size: 20),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[900],
+                      width: 44,
+                      height: 44,
+                      child: const Icon(Icons.music_note, color: Colors.grey, size: 20),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            // Text Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    track.title,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    track.artistName,
+                    style: const TextStyle(color: Colors.white60, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // Actions Menu or Status Icon
+            trailingWidget,
+          ],
+        ),
+      ),
     );
   }
 }

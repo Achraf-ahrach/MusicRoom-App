@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface VoteRepository extends JpaRepository<Vote, UUID> {
     Optional<Vote> findByPlaylistEntryIdAndUserId(UUID entryId, UUID userId);
     boolean existsByPlaylistEntryIdAndUserId(UUID entryId, UUID userId);
+    java.util.List<Vote> findByPlaylistEntryId(UUID entryId);
 }

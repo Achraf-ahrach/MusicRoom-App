@@ -19,6 +19,7 @@ public class EventDto {
     private UUID ownerId;
     private String ownerName;
     private int trackCount;
+    private int participantCount;
     private LocalDateTime createdAt;
     private String coverUrl;
 }

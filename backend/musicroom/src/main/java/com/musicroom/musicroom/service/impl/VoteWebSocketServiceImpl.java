@@ -1,9 +1,9 @@
 package com.musicroom.musicroom.service.impl;
 
 import com.musicroom.musicroom.dto.PlaylistEntryDto;
+import com.musicroom.musicroom.dto.VoteDto;
 import com.musicroom.musicroom.dto.websocket.*;
 import com.musicroom.musicroom.entity.*;
-import com.musicroom.musicroom.exception.ConflictException;
 import com.musicroom.musicroom.exception.ResourceNotFoundException;
 import com.musicroom.musicroom.repository.*;
 import com.musicroom.musicroom.service.VoteWebSocketService;
@@ -48,19 +48,29 @@ public class VoteWebSocketServiceImpl implements VoteWebSocketService {
         VoteUpdateMessage updateMessage;
 
         if (existingVote.isPresent()) {
-            // l'utilisateur a déjà voté — changer son vote
+            // l'utilisateur a déjà voté — changer son vote ou l'annuler
             Vote vote = existingVote.get();
             int oldValue = vote.getValue();
-            vote.setValue(message.getValue());
-            voteRepo.save(vote);
+            if (oldValue == message.getValue()) {
+                // annuler le vote
+                voteRepo.delete(vote);
+                entry.setVoteCount(entry.getVoteCount() - oldValue);
+                playlistRepo.save(entry);
+                updateMessage = buildUpdateMessage(
+                        VoteMessageType.PLAYLIST_UPDATED,
+                        eventId, userId, entry);
+            } else {
+                vote.setValue(message.getValue());
+                voteRepo.save(vote);
 
-            // mettre à jour le vote_count
-            entry.setVoteCount(entry.getVoteCount() - oldValue + message.getValue());
-            playlistRepo.save(entry);
+                // mettre à jour le vote_count
+                entry.setVoteCount(entry.getVoteCount() - oldValue + message.getValue());
+                playlistRepo.save(entry);
 
-            updateMessage = buildUpdateMessage(
-                    VoteMessageType.VOTE_CHANGED,
-                    eventId, userId, entry);
+                updateMessage = buildUpdateMessage(
+                        VoteMessageType.VOTE_CHANGED,
+                        eventId, userId, entry);
+            }
 
         } else {
             // nouveau vote
@@ -115,6 +125,17 @@ public class VoteWebSocketServiceImpl implements VoteWebSocketService {
     }
 
     private PlaylistEntryDto toDto(EventPlaylistEntry entry) {
+        java.util.List<VoteDto> votedList = new java.util.ArrayList<>();
+        java.util.List<Vote> votes = voteRepo.findByPlaylistEntryId(entry.getId());
+        if (votes != null) {
+            for (Vote v : votes) {
+                votedList.add(VoteDto.builder()
+                        .userId(v.getUser().getId())
+                        .displayName(v.getUser().getDisplayName())
+                        .value(v.getValue())
+                        .build());
+            }
+        }
         return PlaylistEntryDto.builder()
                 .id(entry.getId())
                 .title(entry.getTrack().getTitle())
@@ -128,6 +149,7 @@ public class VoteWebSocketServiceImpl implements VoteWebSocketService {
                         entry.getSuggestedBy().getId() : null)
                 .suggestedByName(entry.getSuggestedBy() != null ?
                         entry.getSuggestedBy().getDisplayName() : null)
+                .votedUsers(votedList)
                 .build();
     }
 }

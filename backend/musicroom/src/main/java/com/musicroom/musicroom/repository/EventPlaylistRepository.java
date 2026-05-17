@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface EventPlaylistRepository extends JpaRepository<EventPlaylistEntry, UUID> {
     List<EventPlaylistEntry> findByEventIdOrderByVoteCountDesc(UUID eventId);
     boolean existsByEventIdAndTrackId(UUID eventId, UUID trackId);
+    long countByEventId(UUID eventId);
 }

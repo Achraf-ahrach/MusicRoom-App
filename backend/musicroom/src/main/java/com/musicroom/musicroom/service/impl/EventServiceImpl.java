@@ -164,6 +164,10 @@ public class EventServiceImpl implements EventService {
                         .durationMs(request.getDurationMs())
                         .build()));
 
+        if (playlistRepo.countByEventId(eventId) >= 15) {
+            throw new BadRequestException("Event queue has reached the limit of 15 tracks.");
+        }
+
         if (playlistRepo.existsByEventIdAndTrackId(eventId, track.getId())) {
             throw new ConflictException("Track already in playlist");
         }
@@ -227,21 +231,30 @@ public class EventServiceImpl implements EventService {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        if (voteRepo.existsByPlaylistEntryIdAndUserId(entryId, userId)) {
-            throw new ConflictException("User has already voted for this track");
+        java.util.Optional<Vote> existingOpt = voteRepo.findByPlaylistEntryIdAndUserId(entryId, userId);
+        if (existingOpt.isPresent()) {
+            Vote existingVote = existingOpt.get();
+            if (existingVote.getValue() == request.getValue()) {
+                // toggle off
+                voteRepo.delete(existingVote);
+                entry.setVoteCount(entry.getVoteCount() - existingVote.getValue());
+            } else {
+                int oldVal = existingVote.getValue();
+                existingVote.setValue(request.getValue());
+                voteRepo.save(existingVote);
+                entry.setVoteCount(entry.getVoteCount() - oldVal + request.getValue());
+            }
+        } else {
+            Vote vote = Vote.builder()
+                    .playlistEntry(entry)
+                    .user(user)
+                    .value(request.getValue())
+                    .build();
+            voteRepo.save(vote);
+            entry.setVoteCount(entry.getVoteCount() + request.getValue());
         }
 
-        Vote vote = Vote.builder()
-                .playlistEntry(entry)
-                .user(user)
-                .value(request.getValue())
-                .build();
-
-        voteRepo.save(vote);
-
-        entry.setVoteCount(entry.getVoteCount() + request.getValue());
         playlistRepo.save(entry);
-
         return toPlaylistEntryDto(entry);
     }
 
@@ -297,11 +310,23 @@ public class EventServiceImpl implements EventService {
                 .ownerId(event.getOwner().getId())
                 .ownerName(event.getOwner().getDisplayName())
                 .trackCount(event.getPlaylist().size())
+                .participantCount(1 + (event.getInvites() != null ? event.getInvites().size() : 0))
                 .createdAt(event.getCreatedAt())
                 .build();
     }
 
     private PlaylistEntryDto toPlaylistEntryDto(EventPlaylistEntry entry) {
+        java.util.List<VoteDto> votedList = new java.util.ArrayList<>();
+        java.util.List<Vote> votes = voteRepo.findByPlaylistEntryId(entry.getId());
+        if (votes != null) {
+            for (Vote v : votes) {
+                votedList.add(VoteDto.builder()
+                        .userId(v.getUser().getId())
+                        .displayName(v.getUser().getDisplayName())
+                        .value(v.getValue())
+                        .build());
+            }
+        }
         return PlaylistEntryDto.builder()
                 .id(entry.getId())
                 .title(entry.getTrack().getTitle())
@@ -313,6 +338,7 @@ public class EventServiceImpl implements EventService {
                 .status(entry.getStatus())
                 .suggestedById(entry.getSuggestedBy() != null ? entry.getSuggestedBy().getId() : null)
                 .suggestedByName(entry.getSuggestedBy() != null ? entry.getSuggestedBy().getDisplayName() : null)
+                .votedUsers(votedList)
                 .build();
     }
 }
