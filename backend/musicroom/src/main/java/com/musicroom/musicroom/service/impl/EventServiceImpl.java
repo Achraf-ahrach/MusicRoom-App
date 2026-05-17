@@ -15,6 +15,7 @@ import com.musicroom.musicroom.exception.BadRequestException;
 import java.io.IOException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -242,6 +243,43 @@ public class EventServiceImpl implements EventService {
         playlistRepo.save(entry);
 
         return toPlaylistEntryDto(entry);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getEventUserRole(UUID userId, UUID eventId) {
+        Event event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        String visibility = event.getVisibility() != null ? event.getVisibility() : "public";
+        boolean isOwner = event.getOwner().getId().equals(userId);
+
+        if (isOwner) {
+            return java.util.Map.of(
+                "role", "editor",
+                "allowed", true,
+                "visibility", visibility
+            );
+        }
+
+        Optional<EventInvite> inviteOpt = inviteRepo.findByEventIdAndUserId(eventId, userId);
+
+        if (inviteOpt.isPresent()) {
+            EventInvite invite = inviteOpt.get();
+            String role = "admin".equalsIgnoreCase(invite.getRole()) ? "editor" : "viewer";
+            return java.util.Map.of(
+                "role", role,
+                "allowed", true,
+                "visibility", visibility
+            );
+        }
+
+        boolean isPublic = "public".equalsIgnoreCase(visibility);
+        return java.util.Map.of(
+            "role", isPublic ? "viewer" : "none",
+            "allowed", isPublic,
+            "visibility", visibility
+        );
     }
 
     private EventDto toDto(Event event) {

@@ -2,6 +2,7 @@ package com.musicroom.musicroom.service;
 
 import com.musicroom.musicroom.dto.*;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -17,4 +18,5 @@ public interface EventService {
     PlaylistEntryDto suggestTrack(UUID userId, UUID eventId, SuggestTrackRequest request);
     PlaylistEntryDto vote(UUID userId, UUID eventId, UUID entryId, VoteRequest request);
     EventDto updateEventCover(UUID userId, UUID eventId, MultipartFile cover);
+    Map<String, Object> getEventUserRole(UUID userId, UUID eventId);
 }

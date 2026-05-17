@@ -8,10 +8,9 @@ import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../config/app_theme.dart';
 import 'create_event_screen.dart';
-import 'manage_delegations_screen.dart';
-import 'invite_friends_screen.dart';
 import 'profile/profile_screen.dart';
 import 'playlist_detail_screen.dart';
+import 'event_detail_screen.dart';
 import '../providers/audio_provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -371,70 +370,23 @@ class _HomeContent extends StatelessWidget {
 
                         final event = state.events[index - 1];
                         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                        final currentUserId = authProvider.currentUser?.id;
-                        final isOwner = event['ownerId'] == currentUserId;
 
                         return GestureDetector(
                           onTap: () {
-                            if (isOwner) {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: AppTheme.background,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EventDetailScreen(
+                                  eventId: event['id'],
+                                  eventName: event['name'] ?? 'Event',
                                 ),
-                                builder: (context) => Container(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        event['name'] ?? "Event Actions",
-                                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      ListTile(
-                                        leading: const Icon(Icons.people_outline, color: Colors.green),
-                                        title: const Text('Manage Co-Hosts & DJs', style: TextStyle(color: Colors.white)),
-                                        subtitle: const Text('Delegate room controller privileges', style: TextStyle(color: Colors.white70)),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => ManageDelegationsScreen(
-                                                resourceId: event['id'],
-                                                resourceType: 'EVENT',
-                                                resourceName: event['name'] ?? 'Event',
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.share_outlined, color: Colors.green),
-                                        title: const Text('Invite Listeners', style: TextStyle(color: Colors.white)),
-                                        subtitle: const Text('Send room invitation links', style: TextStyle(color: Colors.white70)),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => InviteFriendsScreen(eventId: event['id']),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('You are a participant in this room.')),
-                              );
-                            }
+                              ),
+                            ).then((_) {
+                              final token = authProvider.currentUser?.accessToken;
+                              if (token != null) {
+                                state._fetchEvents(token);
+                              }
+                            });
                           },
                           child: Container(
                             width: 140,

@@ -105,6 +105,15 @@ public class EventController {
         return ResponseEntity.ok(eventService.vote(userId, id, entryId, request));
     }
 
+    @Operation(summary = "Obtenir le rôle de l'utilisateur dans l'événement")
+    @GetMapping("/{id}/role")
+    public ResponseEntity<java.util.Map<String, Object>> getEventUserRole(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(eventService.getEventUserRole(userId, id));
+    }
+
     @Operation(summary = "Uploader une image pour l'événement")
     @PostMapping(value = "/{id}/cover",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -1,0 +1,1045 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
+import '../config/app_theme.dart';
+import '../models/track_model.dart';
+import '../providers/auth_provider.dart';
+import '../providers/audio_provider.dart';
+import '../services/event_service.dart';
+import '../services/audius_service.dart';
+import 'manage_delegations_screen.dart';
+import 'invite_friends_screen.dart';
+
+class EventDetailScreen extends StatefulWidget {
+  final String eventId;
+  final String eventName;
+
+  const EventDetailScreen({
+    super.key,
+    required this.eventId,
+    required this.eventName,
+  });
+
+  @override
+  State<EventDetailScreen> createState() => _EventDetailScreenState();
+}
+
+class _EventDetailScreenState extends State<EventDetailScreen> {
+  final EventService _eventService = EventService();
+  final AudiusService _audiusService = AudiusService();
+
+  StompClient? _stompClient;
+  bool _isLoading = true;
+  bool _isWsConnected = false;
+
+  Map<String, dynamic>? _eventDetails;
+  String _userRole = 'none'; // 'editor' | 'viewer' | 'none'
+  bool _allowed = false;
+  String _visibility = 'public';
+  List<Map<String, dynamic>> _tracks = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEventData();
+  }
+
+  Future<void> _loadEventData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.currentUser?.accessToken;
+
+      if (token == null) {
+        throw Exception('User is not authenticated');
+      }
+
+      // 1. Fetch user role and permission
+      final roleData = await _eventService.getEventUserRole(widget.eventId, token);
+      _userRole = roleData['role'] ?? 'none';
+      _allowed = roleData['allowed'] ?? false;
+      _visibility = roleData['visibility'] ?? 'public';
+
+      if (!_allowed) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 2. Fetch event details & playlist
+      final details = await _eventService.getEventById(widget.eventId, token);
+      final playlist = await _eventService.getEventPlaylist(widget.eventId, token);
+
+      setState(() {
+        _eventDetails = details;
+        _tracks = playlist;
+        _isLoading = false;
+      });
+
+      // 3. Connect to STOMP WebSocket
+      _connectWebSocket(token);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load event: $e')),
+      );
+    }
+  }
+
+  void _connectWebSocket(String token) {
+    final wsUrl = _eventService.baseUrl.replaceFirst('http', 'ws') + '/ws';
+    debugPrint('Connecting to Event WebSocket: $wsUrl');
+
+    _stompClient = StompClient(
+      config: StompConfig(
+        url: wsUrl,
+        onConnect: (StompFrame frame) {
+          debugPrint('STOMP connected for Event ${widget.eventId}');
+          if (!mounted) return;
+          setState(() {
+            _isWsConnected = true;
+          });
+
+          // Subscribe to topic
+          _stompClient?.subscribe(
+            destination: '/topic/event/${widget.eventId}/playlist',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                try {
+                  final data = jsonDecode(frame.body!);
+                  final List<dynamic> updatedPlaylist = data['playlist'] ?? [];
+                  setState(() {
+                    _tracks = updatedPlaylist.cast<Map<String, dynamic>>();
+                  });
+                } catch (e) {
+                  debugPrint('Error parsing STOMP frame body: $e');
+                }
+              }
+            },
+          );
+        },
+        stompConnectHeaders: {
+          'Authorization': 'Bearer $token',
+        },
+        webSocketConnectHeaders: {
+          'Authorization': 'Bearer $token',
+        },
+        onDisconnect: (frame) {
+          debugPrint('STOMP disconnected');
+          if (mounted) {
+            setState(() {
+              _isWsConnected = false;
+            });
+          }
+        },
+        onStompError: (frame) {
+          debugPrint('STOMP error: ${frame.body}');
+        },
+        onWebSocketError: (error) {
+          debugPrint('WebSocket error: $error');
+          if (mounted) {
+            setState(() {
+              _isWsConnected = false;
+            });
+          }
+        },
+      ),
+    );
+
+    _stompClient?.activate();
+  }
+
+  void _sendVote(String entryId, int value) {
+    if (_stompClient == null || !_isWsConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Disconnected. Reconnecting...')),
+      );
+      // Attempt manual reload in the meantime
+      _refreshPlaylist();
+      return;
+    }
+
+    final payload = {
+      'entryId': entryId,
+      'value': value,
+    };
+
+    _stompClient?.send(
+      destination: '/app/event/${widget.eventId}/vote',
+      body: jsonEncode(payload),
+    );
+  }
+
+  Future<void> _refreshPlaylist() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.currentUser?.accessToken;
+      if (token == null) return;
+
+      final playlist = await _eventService.getEventPlaylist(widget.eventId, token);
+      if (mounted) {
+        setState(() {
+          _tracks = playlist;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to refresh playlist: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _stompClient?.deactivate();
+    super.dispose();
+  }
+
+  void _showAddTrackSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _EventAddTrackModal(
+        eventId: widget.eventId,
+        eventService: _eventService,
+        audiusService: _audiusService,
+        onTrackAdded: () {
+          _refreshPlaylist();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.green),
+        ),
+      );
+    }
+
+    if (!_allowed) {
+      return _buildPrivateRoomAccessDenied();
+    }
+
+    final String eventName = _eventDetails?['name'] ?? widget.eventName;
+    final String description = _eventDetails?['description'] ?? 'No description provided';
+    final String ownerName = _eventDetails?['ownerName'] ?? 'Host';
+    final String coverUrl = _eventDetails?['coverUrl'] ?? '';
+
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: Stack(
+        children: [
+          // ── Background Cover Art and Gradient ────────────────────────────────
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF0F2027),
+                    Color(0xFF203A43),
+                    Color(0xFF2C5364),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+          ),
+          if (coverUrl.isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 250,
+              child: ShaderMask(
+                shaderCallback: (rect) {
+                  return LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.4),
+                      Colors.transparent,
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ).createShader(rect);
+                },
+                blendMode: BlendMode.dstIn,
+                child: Image.network(
+                  coverUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                ),
+              ),
+            ),
+
+          // ── Content ──────────────────────────────────────────────────────────
+          SafeArea(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // ── App Bar ───────────────────────────────────────────────────
+                SliverAppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  pinned: true,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  actions: [
+                    if (_userRole == 'editor')
+                      IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: AppTheme.background,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            builder: (context) => Container(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    eventName,
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ListTile(
+                                    leading: const Icon(Icons.people_outline, color: Colors.green),
+                                    title: const Text('Manage Co-Hosts & DJs', style: TextStyle(color: Colors.white)),
+                                    subtitle: const Text('Delegate room privileges', style: TextStyle(color: Colors.white70)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ManageDelegationsScreen(
+                                            resourceId: widget.eventId,
+                                            resourceType: 'EVENT',
+                                            resourceName: eventName,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.share_outlined, color: Colors.green),
+                                    title: const Text('Invite Listeners', style: TextStyle(color: Colors.white)),
+                                    subtitle: const Text('Send room invitation links', style: TextStyle(color: Colors.white70)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => InviteFriendsScreen(eventId: widget.eventId),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    // Connection Status Badge
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _isWsConnected
+                                ? Colors.green.withOpacity(0.2)
+                                : Colors.orange.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _isWsConnected ? Colors.green : Colors.orange,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _isWsConnected ? Colors.green : Colors.orange,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isWsConnected ? 'LIVE' : 'CONNECTING',
+                                style: TextStyle(
+                                  color: _isWsConnected ? Colors.green : Colors.orange,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── Header Details ────────────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 10),
+                        // Badges: Public/Private & Role
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _visibility == 'public'
+                                    ? Colors.cyan.withOpacity(0.2)
+                                    : Colors.redAccent.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _visibility.toUpperCase(),
+                                style: TextStyle(
+                                  color: _visibility == 'public' ? Colors.cyanAccent : Colors.redAccent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _userRole == 'editor'
+                                    ? Colors.greenAccent.withOpacity(0.2)
+                                    : Colors.purple.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _userRole.toUpperCase(),
+                                style: TextStyle(
+                                  color: _userRole == 'editor' ? Colors.greenAccent : Colors.purpleAccent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          eventName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Hosted by $ownerName',
+                          style: TextStyle(
+                            color: Colors.grey[300],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Add Music & Play All Row
+                        Row(
+                          children: [
+                            // "Add Music" Suggest Button (Accessible to everyone as requested, or editor only - here we allow all)
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  elevation: 4,
+                                ),
+                                icon: const Icon(Icons.add_rounded, size: 22),
+                                label: const Text(
+                                  'Suggest Music',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                onPressed: _showAddTrackSheet,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Live Queue',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Tracks List ───────────────────────────────────────────────
+                if (_tracks.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.queue_music_rounded, color: Colors.grey, size: 48),
+                          SizedBox(height: 12),
+                          Text(
+                            'Queue is empty.',
+                            style: TextStyle(color: Colors.grey, fontSize: 15),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Suggest the first track to get the party started!',
+                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.only(bottom: 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final entry = _tracks[index];
+                          final String entryId = entry['id']?.toString() ?? '';
+                          final String title = entry['title'] ?? 'Unknown Title';
+                          final String artist = entry['artist'] ?? 'Unknown Artist';
+                          final String coverUrl = entry['coverUrl'] ?? '';
+                          final int voteCount = entry['voteCount'] ?? 0;
+                          final String suggestedByName = entry['suggestedByName'] ?? '';
+
+                          final track = Track.fromPlaylistTrackJson(entry);
+
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.05),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                // Rank Number
+                                Container(
+                                  width: 24,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: TextStyle(
+                                      color: index == 0 ? Colors.greenAccent : Colors.white70,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+
+                                // Album Art
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: coverUrl.isNotEmpty
+                                      ? Image.network(
+                                          coverUrl,
+                                          width: 50,
+                                          height: 50,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              Container(
+                                            color: Colors.grey[900],
+                                            width: 50,
+                                            height: 50,
+                                            child: const Icon(Icons.music_note, color: Colors.grey),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: Colors.grey[900],
+                                          width: 50,
+                                          height: 50,
+                                          child: const Icon(Icons.music_note, color: Colors.grey),
+                                        ),
+                                ),
+                                const SizedBox(width: 12),
+
+                                // Title and Artist
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        artist,
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (suggestedByName.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Suggested by $suggestedByName',
+                                          style: const TextStyle(
+                                            color: Colors.greenAccent,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ]
+                                    ],
+                                  ),
+                                ),
+
+                                // Play button (Only for Editor/Owner, or everyone to stream)
+                                IconButton(
+                                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.white70),
+                                  onPressed: () {
+                                    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                                    audioProvider.playTrack(track);
+                                  },
+                                ),
+
+                                // Voting Widget
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Downvote
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.arrow_downward_rounded,
+                                        size: 20,
+                                        color: Colors.grey,
+                                      ),
+                                      onPressed: () => _sendVote(entryId, -1),
+                                    ),
+
+                                    // Vote Count Bold pill
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: voteCount > 0
+                                            ? Colors.green.withOpacity(0.2)
+                                            : (voteCount < 0
+                                                ? Colors.red.withOpacity(0.2)
+                                                : Colors.white.withOpacity(0.1)),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        voteCount > 0 ? '+$voteCount' : '$voteCount',
+                                        style: TextStyle(
+                                          color: voteCount > 0
+                                              ? Colors.greenAccent
+                                              : (voteCount < 0
+                                                  ? Colors.redAccent
+                                                  : Colors.white70),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Upvote
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 20,
+                                        color: Colors.greenAccent,
+                                      ),
+                                      onPressed: () => _sendVote(entryId, 1),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        childCount: _tracks.length,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrivateRoomAccessDenied() {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1F1C2C), Color(0xFF928DAB)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.redAccent, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    color: Colors.redAccent,
+                    size: 80,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Private Room Access Denied',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'This room is private. You must be invited by the owner in order to join the groove.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[300],
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Go Back',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Search & Suggest Tracks Modal ───────────────────────────────────────────
+class _EventAddTrackModal extends StatefulWidget {
+  final String eventId;
+  final EventService eventService;
+  final AudiusService audiusService;
+  final VoidCallback onTrackAdded;
+
+  const _EventAddTrackModal({
+    required this.eventId,
+    required this.eventService,
+    required this.audiusService,
+    required this.onTrackAdded,
+  });
+
+  @override
+  State<_EventAddTrackModal> createState() => _EventAddTrackModalState();
+}
+
+class _EventAddTrackModalState extends State<_EventAddTrackModal> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Track> _searchResults = [];
+  bool _isLoading = false;
+  bool _isSuggesting = false;
+
+  void _performSearch(String query) async {
+    if (query.trim().isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final results = await widget.audiusService.searchTracks(query);
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to search tracks: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _suggestTrack(Track track) async {
+    setState(() {
+      _isSuggesting = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.currentUser?.accessToken;
+      if (token == null) throw Exception('Not authenticated');
+
+      await widget.eventService.suggestTrack(widget.eventId, track, token);
+
+      if (mounted) {
+        widget.onTrackAdded();
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green,
+            content: Text(
+              'Successfully suggested "${track.title}"!',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSuggesting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to suggest track: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: FractionallySizedBox(
+        heightFactor: 0.8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle Bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[600],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Suggest a Track',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Search Input
+            TextField(
+              controller: _searchController,
+              onSubmitted: _performSearch,
+              style: const TextStyle(color: Colors.black),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                hintText: 'Search Audius tracks...',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Search Results or Loading
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Colors.green))
+                  : (_searchResults.isEmpty
+                      ? Center(
+                          child: Text(
+                            _searchController.text.isEmpty
+                                ? 'Type something to search'
+                                : 'No results found',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _searchResults.length,
+                          itemBuilder: (context, index) {
+                            final track = _searchResults[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: track.imageUrl != null && track.imageUrl!.isNotEmpty
+                                    ? Image.network(
+                                        track.imageUrl!,
+                                        width: 45,
+                                        height: 45,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Container(
+                                        color: Colors.grey[900],
+                                        width: 45,
+                                        height: 45,
+                                        child: const Icon(Icons.music_note, color: Colors.grey),
+                                      ),
+                              ),
+                              title: Text(
+                                track.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                track.artistName,
+                                style: TextStyle(color: Colors.grey[400]),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: _isSuggesting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.green,
+                                      ),
+                                    )
+                                  : IconButton(
+                                      icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent),
+                                      onPressed: () => _suggestTrack(track),
+                                    ),
+                            );
+                          },
+                        )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
