@@ -5,12 +5,16 @@ import com.musicroom.musicroom.dto.UpdateProfileRequest;
 import com.musicroom.musicroom.dto.UserProfileDto;
 import com.musicroom.musicroom.entity.User;
 import com.musicroom.musicroom.exception.ResourceNotFoundException;
+import com.musicroom.musicroom.exception.BadRequestException;
+import java.io.IOException;
 import com.musicroom.musicroom.repository.FriendshipRepository;
 import com.musicroom.musicroom.repository.UserRepository;
 import com.musicroom.musicroom.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.UUID;
 
 @Service
@@ -88,6 +92,38 @@ public class UserServiceImpl implements UserService {
         }
         if (request.getPrivateInfo() != null) {
             user.setPrivateInfo(request.getPrivateInfo());
+        }
+
+        userRepo.save(user);
+        return getMyProfile(userId);
+    }
+
+    @Override
+    @Transactional
+    public UserProfileDto updateAvatar(UUID userId, MultipartFile avatar) {
+
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (avatar != null && !avatar.isEmpty()) {
+
+            String contentType = avatar.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new BadRequestException("Le fichier doit être une image");
+            }
+
+            if (avatar.getSize() > 2 * 1024 * 1024) {
+                throw new BadRequestException("L'image ne doit pas dépasser 2MB");
+            }
+
+            try {
+                byte[] bytes = avatar.getBytes();
+                String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+                String dataUrl = "data:" + contentType + ";base64," + base64;
+                user.setAvatarUrl(dataUrl);
+            } catch (IOException e) {
+                throw new BadRequestException("Erreur lors de l'upload de l'avatar");
+            }
         }
 
         userRepo.save(user);

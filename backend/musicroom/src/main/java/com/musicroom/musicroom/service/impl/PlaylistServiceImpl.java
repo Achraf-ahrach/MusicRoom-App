@@ -10,6 +10,10 @@ import com.musicroom.musicroom.service.PlaylistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import com.musicroom.musicroom.exception.BadRequestException;
+import java.io.IOException;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,6 +47,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PlaylistDto> getMyPlaylists(UUID userId) {
         return playlistRepo.findAccessibleByUserId(userId)
                 .stream()
@@ -51,6 +56,45 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional
+    public PlaylistDto updatePlaylistCover(UUID userId, UUID playlistId,
+                                            MultipartFile cover) {
+
+        Playlist playlist = playlistRepo.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        if (!playlist.getOwner().getId().equals(userId)) {
+            throw new UnauthorizedException("Not authorized to update this playlist");
+        }
+
+        if (cover != null && !cover.isEmpty()) {
+
+            String contentType = cover.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new BadRequestException("Le fichier doit être une image");
+            }
+
+            if (cover.getSize() > 2 * 1024 * 1024) {
+                throw new BadRequestException("L'image ne doit pas dépasser 2MB");
+            }
+
+            try {
+                byte[] bytes = cover.getBytes();
+                String base64 = java.util.Base64.getEncoder()
+                        .encodeToString(bytes);
+                String dataUrl = "data:" + contentType + ";base64," + base64;
+                playlist.setCoverUrl(dataUrl);
+            } catch (IOException e) {
+                throw new BadRequestException("Erreur lors de l'upload de l'image");
+            }
+        }
+
+        playlistRepo.save(playlist);
+        return toDto(playlist);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<PlaylistDto> getPublicPlaylists() {
         return playlistRepo.findByVisibility("public")
                 .stream()
@@ -59,11 +103,11 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PlaylistDto getPlaylistById(UUID playlistId, UUID userId) {
         Playlist playlist = playlistRepo.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
 
-        // vérifier accès
         if (playlist.getVisibility().equals("private") &&
             !playlist.getOwner().getId().equals(userId) &&
             !inviteRepo.existsByPlaylistIdAndUserId(playlistId, userId)) {
@@ -132,6 +176,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PlaylistTrackDto> getPlaylistTracks(UUID playlistId, UUID userId) {
         Playlist playlist = playlistRepo.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));

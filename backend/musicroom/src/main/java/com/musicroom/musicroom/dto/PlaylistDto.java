@@ -18,4 +18,5 @@ public class PlaylistDto {
     private int trackCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String coverUrl;
 }

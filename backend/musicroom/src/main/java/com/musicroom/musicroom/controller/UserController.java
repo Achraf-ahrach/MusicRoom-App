@@ -1,6 +1,8 @@
 package com.musicroom.musicroom.controller;
 
 import com.musicroom.musicroom.dto.UpdatePreferencesRequest;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import com.musicroom.musicroom.dto.UpdateProfileRequest;
 import com.musicroom.musicroom.dto.UserProfileDto;
 import com.musicroom.musicroom.service.UserService;
@@ -14,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.UUID;
 
 @RestController
@@ -78,5 +81,15 @@ public class UserController {
 
         UUID userId = UUID.fromString(userDetails.getUsername());
         return ResponseEntity.ok(userService.updatePreferences(userId, request));
+    }
+
+    @Operation(summary = "Uploader mon avatar")
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserProfileDto> uploadAvatar(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(value = "avatar", required = false) MultipartFile avatar) {
+
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(userService.updateAvatar(userId, avatar));
     }
 }

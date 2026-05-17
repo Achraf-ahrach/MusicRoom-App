@@ -39,6 +39,9 @@ public class Event {
     @Column(name = "starts_at")
     private LocalDateTime startsAt;
 
+    @Column(name = "cover_url", columnDefinition = "TEXT")
+    private String coverUrl;
+
     @Column(name = "ends_at")
     private LocalDateTime endsAt;
 
