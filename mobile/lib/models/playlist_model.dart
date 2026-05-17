@@ -7,6 +7,7 @@ class Playlist {
   final String visibility;
   final String ownerId;
   final String? permission;
+  final String? description;
 
   Playlist({
     required this.id,
@@ -17,6 +18,7 @@ class Playlist {
     this.visibility = 'public',
     this.ownerId = '',
     this.permission,
+    this.description,
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Playlist {
     final String parsedVisibility = (json['visibility'] ?? 'public').toString();
     final String parsedOwnerId = (json['ownerId'] ?? '').toString();
     final String? parsedPermission = json['permission']?.toString();
+    final String? parsedDescription = json['description']?.toString();
 
     return Playlist(
       id: parsedId,
@@ -42,6 +45,7 @@ class Playlist {
       visibility: parsedVisibility,
       ownerId: parsedOwnerId,
       permission: parsedPermission,
+      description: parsedDescription,
     );
   }
 }

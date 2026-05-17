@@ -500,6 +500,17 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 ],
                               ],
                             ),
+                            if (_playlist!.description != null && _playlist!.description!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                _playlist!.description!,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
