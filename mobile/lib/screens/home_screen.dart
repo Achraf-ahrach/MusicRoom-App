@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../config/app_theme.dart';
 import 'playlist_detail_screen.dart';
 import 'profile/profile_screen.dart';
+import 'create_event_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -291,7 +292,7 @@ class _HomeContent extends StatelessWidget {
                     ),
             ),
           ),
-          _buildSectionHeader('Events'),
+          _buildEventsSectionHeader(context),
           SliverToBoxAdapter(
             child: SizedBox(
               height: 180,
@@ -306,19 +307,78 @@ class _HomeContent extends StatelessWidget {
                         style: TextStyle(color: Colors.grey[400]),
                       ),
                     )
-                  : state.events.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No events found',
-                        style: TextStyle(color: Colors.grey[400]),
-                      ),
-                    )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       scrollDirection: Axis.horizontal,
-                      itemCount: state.events.length,
+                      itemCount: state.events.length + 1,
                       itemBuilder: (context, index) {
-                        final event = state.events[index];
+                        if (index == 0) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreateEventScreen(),
+                                ),
+                              ).then((_) {
+                                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                                final token = authProvider.currentUser?.accessToken;
+                                if (token != null) {
+                                  state._fetchEvents(token);
+                                }
+                              });
+                            },
+                            child: Container(
+                              width: 140,
+                              margin: const EdgeInsets.only(right: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[900],
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.green.withValues(alpha: 0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.add,
+                                      color: Colors.green,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    "Create Event",
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Host a live room",
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        final event = state.events[index - 1];
                         return Container(
                           width: 140,
                           margin: const EdgeInsets.only(right: 16),
@@ -326,7 +386,7 @@ class _HomeContent extends StatelessWidget {
                             color: Colors.grey[900],
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.green.withAlpha(50),
+                              color: Colors.green.withValues(alpha: 0.2),
                             ),
                           ),
                           child: Column(
@@ -404,6 +464,68 @@ class _HomeContent extends StatelessWidget {
             fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventsSectionHeader(BuildContext context) {
+    final state = context.findAncestorStateOfType<HomeScreenState>();
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Events',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                if (state != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateEventScreen(),
+                    ),
+                  ).then((_) {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final token = authProvider.currentUser?.accessToken;
+                    if (token != null) {
+                      state._fetchEvents(token);
+                    }
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.green, width: 1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, color: Colors.green, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Create Event',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

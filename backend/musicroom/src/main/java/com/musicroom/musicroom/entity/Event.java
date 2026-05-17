@@ -26,10 +26,12 @@ public class Event {
     private String description;
 
     // "public" | "private"
+    @Builder.Default
     @Column(nullable = false)
     private String visibility = "public";
 
     // "open" | "invite_only" | "location_time"
+    @Builder.Default
     @Column(name = "license_type", nullable = false)
     private String licenseType = "open";
 
@@ -45,16 +47,20 @@ public class Event {
     @Column(name = "ends_at")
     private LocalDateTime endsAt;
 
+    @Builder.Default
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Builder.Default
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EventInvite> invites = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("voteCount DESC, suggestedAt ASC")
     private List<EventPlaylistEntry> playlist = new ArrayList<>();
 
+    @Builder.Default
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

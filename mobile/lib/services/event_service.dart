@@ -40,7 +40,10 @@ class EventService {
     );
 
     if (response.statusCode != 201) {
-      throw Exception('Failed to create event: ${response.body}');
+      final errorMsg = response.body.trim().isEmpty 
+          ? 'Status ${response.statusCode}' 
+          : response.body;
+      throw Exception('Failed to create event: $errorMsg');
     }
   }
 
