@@ -403,7 +403,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                             Row(
+                            if (_playlist!.description != null && _playlist!.description!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _playlist!.description!,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            Row(
                               children: [
                                 GestureDetector(
                                   onTap: widget.useBackend && _playlist!.ownerId.isNotEmpty
@@ -500,17 +512,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 ],
                               ],
                             ),
-                            if (_playlist!.description != null && _playlist!.description!.trim().isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                _playlist!.description!,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
