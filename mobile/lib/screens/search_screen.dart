@@ -4,9 +4,8 @@ import '../config/app_theme.dart';
 import '../widgets/category_card.dart';
 import '../services/audius_service.dart';
 import '../models/track_model.dart';
-import '../providers/user_profile_provider.dart';
 import '../providers/audio_provider.dart';
-import 'profile/profile_screen.dart';
+import '../widgets/add_to_playlist_modal.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -143,34 +142,6 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
               child: Row(
                 children: [
-                  Consumer<UserProfileProvider>(
-                    builder: (context, profileProvider, child) {
-                      final profile = profileProvider.profile;
-                      final avatarUrl = profile?.avatarUrl;
-
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ProfileScreen(),
-                            ),
-                          );
-                        },
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.grey[800],
-                          backgroundImage:
-                              avatarUrl != null && avatarUrl.isNotEmpty
-                              ? NetworkImage(avatarUrl)
-                              : const NetworkImage(
-                                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-                                ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 16),
                   const Text(
                     'Search',
                     style: TextStyle(
@@ -339,7 +310,17 @@ class _SearchScreenState extends State<SearchScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: const Icon(Icons.more_vert, color: Colors.grey),
+                trailing: IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.grey),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => AddToPlaylistModal(track: track),
+                    );
+                  },
+                ),
                 onTap: () {
                   if (track.audioUrl == null || track.audioUrl!.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(

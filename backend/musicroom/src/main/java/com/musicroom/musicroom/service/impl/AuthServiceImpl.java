@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.musicroom.musicroom.dto.AuthResponse;
 import com.musicroom.musicroom.dto.*;
@@ -109,6 +110,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public TokenRefreshResponseDTO refreshAccessToken(TokenRefreshRequestDTO request) {
         // Verify refresh token is valid and not revoked
         RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.refreshToken())

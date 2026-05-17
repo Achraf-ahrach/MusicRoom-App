@@ -39,7 +39,7 @@ class PlaylistProvider with ChangeNotifier {
     try {
       return await action(token);
     } catch (e) {
-      final shouldRetry = e.toString().contains('401');
+      final shouldRetry = e.toString().contains('401') || e.toString().contains('403');
       if (shouldRetry && auth != null) {
         final refreshed = await auth.refreshTokens();
         if (refreshed) {

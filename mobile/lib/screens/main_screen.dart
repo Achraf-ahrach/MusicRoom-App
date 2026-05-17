@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/audio_provider.dart';
 import 'home_screen.dart';
 import 'search_screen.dart';
 import 'library_screen.dart';
@@ -17,6 +19,12 @@ class _MainScreenState extends State<MainScreen> {
   bool _isCreateMenuOpen = false;
 
   void _onItemTapped(int index) {
+    // Automatically minimize player if it is maximized when clicking any tab
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    if (audioProvider.isPlayerMaximized) {
+      audioProvider.minimizePlayer();
+    }
+
     if (index == 3) {
       setState(() {
         _isCreateMenuOpen = !_isCreateMenuOpen;

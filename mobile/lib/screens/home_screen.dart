@@ -6,7 +6,6 @@ import '../models/track_model.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/auth_provider.dart';
 import '../config/app_theme.dart';
-import 'profile/profile_screen.dart';
 import 'create_event_screen.dart';
 import 'manage_delegations_screen.dart';
 import 'invite_friends_screen.dart';
@@ -155,31 +154,6 @@ class _HomeContent extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
                 child: Row(
                   children: [
-                    Consumer<UserProfileProvider>(
-                      builder: (context, profileProvider, child) {
-                        final profile = profileProvider.profile;
-                        final avatarUrl = profile?.avatarUrl;
-                        return GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ProfileScreen(),
-                            ),
-                          ),
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.grey[800],
-                            backgroundImage:
-                                avatarUrl != null && avatarUrl.isNotEmpty
-                                ? NetworkImage(avatarUrl)
-                                : const NetworkImage(
-                                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-                                  ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 16),
                     const Text(
                       'Home',
                       style: TextStyle(

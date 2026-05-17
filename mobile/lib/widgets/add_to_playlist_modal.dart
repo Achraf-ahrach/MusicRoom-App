@@ -37,10 +37,20 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
   }
 
   Future<void> _createAndAdd(BuildContext context) async {
-    if (_playlistNameController.text.trim().isEmpty) return;
+    final name = _playlistNameController.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (name.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a playlist name'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
     if (_isSubmitting) return;
 
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
 
