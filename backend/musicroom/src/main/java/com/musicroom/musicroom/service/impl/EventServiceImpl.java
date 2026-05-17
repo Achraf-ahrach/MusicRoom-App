@@ -10,6 +10,10 @@ import com.musicroom.musicroom.service.EventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import com.musicroom.musicroom.exception.BadRequestException;
+import java.io.IOException;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -171,6 +175,43 @@ public class EventServiceImpl implements EventService {
 
         playlistRepo.save(entry);
         return toPlaylistEntryDto(entry);
+    }
+
+    @Override
+    @Transactional
+    public EventDto updateEventCover(UUID userId, UUID eventId,
+                                  MultipartFile cover) {
+
+        Event event = eventRepo.findById(eventId)
+            .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        if (!event.getOwner().getId().equals(userId)) {
+                throw new UnauthorizedException("Not authorized to update this event");
+        }
+
+        if (cover != null && !cover.isEmpty()) {
+
+                String contentType = cover.getContentType();
+                if (contentType == null || !contentType.startsWith("image/")) {
+                throw new BadRequestException("Le fichier doit être une image");
+                }
+
+                if (cover.getSize() > 2 * 1024 * 1024) {
+                throw new BadRequestException("L'image ne doit pas dépasser 2MB");
+                }
+
+                try {
+                byte[] bytes = cover.getBytes();
+                String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+                String dataUrl = "data:" + contentType + ";base64," + base64;
+                event.setCoverUrl(dataUrl);
+                } catch (IOException e) {
+                throw new BadRequestException("Erreur lors de l'upload de l'image");
+                }
+        }
+
+        eventRepo.save(event);
+        return getEventById(eventId);
     }
 
     @Override

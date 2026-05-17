@@ -4,6 +4,8 @@ import com.musicroom.musicroom.dto.*;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.web.multipart.MultipartFile;
+
 public interface EventService {
     EventDto createEvent(UUID ownerId, CreateEventRequest request);
     List<EventDto> getAllPublicEvents();
@@ -14,4 +16,5 @@ public interface EventService {
     List<PlaylistEntryDto> getPlaylist(UUID eventId);
     PlaylistEntryDto suggestTrack(UUID userId, UUID eventId, SuggestTrackRequest request);
     PlaylistEntryDto vote(UUID userId, UUID eventId, UUID entryId, VoteRequest request);
+    EventDto updateEventCover(UUID userId, UUID eventId, MultipartFile cover);
 }

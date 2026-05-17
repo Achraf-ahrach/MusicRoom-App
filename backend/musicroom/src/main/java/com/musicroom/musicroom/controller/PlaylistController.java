@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -91,5 +94,17 @@ public class PlaylistController {
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(userDetails.getUsername());
         return ResponseEntity.ok(playlistService.getPlaylistTracks(id, userId));
+    }
+
+    @Operation(summary = "Uploader une image pour la playlist")
+    @PostMapping(value = "/{id}/cover",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PlaylistDto> uploadCover(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @RequestParam(value = "cover", required = false) MultipartFile cover) {
+
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(playlistService.updatePlaylistCover(userId, id, cover));
     }
 }

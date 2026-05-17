@@ -20,4 +20,5 @@ public class EventDto {
     private String ownerName;
     private int trackCount;
     private LocalDateTime createdAt;
+    private String coverUrl;
 }

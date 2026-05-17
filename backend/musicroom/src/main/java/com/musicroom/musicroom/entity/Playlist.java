@@ -49,4 +49,7 @@ public class Playlist {
     @Column(name = "updated_at")
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Column(name = "cover_url", columnDefinition = "TEXT")
+    private String coverUrl;
 }
