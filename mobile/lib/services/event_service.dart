@@ -157,4 +157,91 @@ class EventService {
       throw Exception('Failed to suggest track: $errorMsg');
     }
   }
+
+  Future<void> updateEventSettings(
+    String eventId,
+    String name,
+    String description,
+    bool isPrivate,
+    String token,
+  ) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId');
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        'visibility': isPrivate ? 'private' : 'public',
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update event settings');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getEventCollaborators(String eventId, String token) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/collaborators');
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+      return list.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to fetch event collaborators');
+    }
+  }
+
+  Future<void> updateCollaboratorRole(
+    String eventId,
+    String collaboratorId,
+    String role,
+    String token,
+  ) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/collaborators/$collaboratorId/role?role=$role');
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update collaborator role');
+    }
+  }
+
+  Future<void> removeCollaborator(
+    String eventId,
+    String collaboratorId,
+    String token,
+  ) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/collaborators/$collaboratorId');
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Failed to remove collaborator');
+    }
+  }
 }

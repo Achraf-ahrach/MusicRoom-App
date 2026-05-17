@@ -19,4 +19,7 @@ public interface EventService {
     PlaylistEntryDto vote(UUID userId, UUID eventId, UUID entryId, VoteRequest request);
     EventDto updateEventCover(UUID userId, UUID eventId, MultipartFile cover);
     Map<String, Object> getEventUserRole(UUID userId, UUID eventId);
+    List<Map<String, Object>> getCollaborators(UUID userId, UUID eventId);
+    void updateCollaboratorRole(UUID ownerId, UUID eventId, UUID collaboratorId, String role);
+    void removeCollaborator(UUID ownerId, UUID eventId, UUID collaboratorId);
 }

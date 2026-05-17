@@ -125,4 +125,36 @@ public class EventController {
         UUID userId = UUID.fromString(userDetails.getUsername());
         return ResponseEntity.ok(eventService.updateEventCover(userId, id, cover));
     }
+
+    @Operation(summary = "Obtenir les collaborateurs de l'événement")
+    @GetMapping("/{id}/collaborators")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getCollaborators(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(eventService.getCollaborators(userId, id));
+    }
+
+    @Operation(summary = "Mettre à jour le rôle d'un collaborateur")
+    @PutMapping("/{id}/collaborators/{collaboratorId}/role")
+    public ResponseEntity<Void> updateCollaboratorRole(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @PathVariable UUID collaboratorId,
+            @RequestParam String role) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        eventService.updateCollaboratorRole(userId, id, collaboratorId, role);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Supprimer un collaborateur")
+    @DeleteMapping("/{id}/collaborators/{collaboratorId}")
+    public ResponseEntity<Void> removeCollaborator(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @PathVariable UUID collaboratorId) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        eventService.removeCollaborator(userId, id, collaboratorId);
+        return ResponseEntity.noContent().build();
+    }
 }

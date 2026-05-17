@@ -341,4 +341,70 @@ public class EventServiceImpl implements EventService {
                 .votedUsers(votedList)
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<java.util.Map<String, Object>> getCollaborators(UUID userId, UUID eventId) {
+        Event event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        boolean isOwner = event.getOwner().getId().equals(userId);
+        boolean hasInvite = inviteRepo.existsByEventIdAndUserId(eventId, userId);
+        boolean isPublic = "public".equalsIgnoreCase(event.getVisibility());
+
+        if (!isOwner && !hasInvite && !isPublic) {
+            throw new UnauthorizedException("Not authorized to view collaborators for this event");
+        }
+
+        java.util.List<EventInvite> invites = inviteRepo.findByEventId(eventId);
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+
+        for (EventInvite invite : invites) {
+            java.util.Map<String, Object> cMap = new java.util.HashMap<>();
+            cMap.put("userId", invite.getUser().getId().toString());
+            cMap.put("displayName", invite.getUser().getDisplayName());
+            cMap.put("avatarUrl", invite.getUser().getAvatarUrl() != null ? invite.getUser().getAvatarUrl() : "");
+            cMap.put("permission", "admin".equalsIgnoreCase(invite.getRole()) ? "editor" : "viewer");
+            result.add(cMap);
+        }
+
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void updateCollaboratorRole(UUID ownerId, UUID eventId, UUID collaboratorId, String role) {
+        Event event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        if (!event.getOwner().getId().equals(ownerId)) {
+            throw new UnauthorizedException("Only the event owner can modify collaborator roles");
+        }
+
+        EventInvite invite = inviteRepo.findByEventIdAndUserId(eventId, collaboratorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
+
+        if ("editor".equalsIgnoreCase(role)) {
+            invite.setRole("admin");
+        } else {
+            invite.setRole("voter");
+        }
+        inviteRepo.save(invite);
+    }
+
+    @Override
+    @Transactional
+    public void removeCollaborator(UUID ownerId, UUID eventId, UUID collaboratorId) {
+        Event event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        if (!event.getOwner().getId().equals(ownerId)) {
+            throw new UnauthorizedException("Only the event owner can remove collaborators");
+        }
+
+        EventInvite invite = inviteRepo.findByEventIdAndUserId(eventId, collaboratorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
+
+        inviteRepo.delete(invite);
+    }
 }

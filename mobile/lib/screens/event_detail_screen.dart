@@ -10,6 +10,7 @@ import '../services/event_service.dart';
 import '../services/audius_service.dart';
 import 'manage_delegations_screen.dart';
 import 'invite_friends_screen.dart';
+import 'event_settings_screen.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -314,59 +315,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       IconButton(
                         icon: const Icon(Icons.settings, color: Colors.white),
                         onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            backgroundColor: AppTheme.background,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                            ),
-                            builder: (context) => Container(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    eventName,
-                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ListTile(
-                                    leading: const Icon(Icons.people_outline, color: Colors.green),
-                                    title: const Text('Manage Co-Hosts & DJs', style: TextStyle(color: Colors.white)),
-                                    subtitle: const Text('Delegate room privileges', style: TextStyle(color: Colors.white70)),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ManageDelegationsScreen(
-                                            resourceId: widget.eventId,
-                                            resourceType: 'EVENT',
-                                            resourceName: eventName,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.share_outlined, color: Colors.green),
-                                    title: const Text('Invite Listeners', style: TextStyle(color: Colors.white)),
-                                    subtitle: const Text('Send room invitation links', style: TextStyle(color: Colors.white70)),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => InviteFriendsScreen(eventId: widget.eventId),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EventSettingsScreen(
+                                eventId: widget.eventId,
+                                eventName: eventName,
+                                description: description,
+                                visibility: _visibility,
                               ),
                             ),
-                          );
+                          ).then((_) {
+                            // Refresh event data when returning from settings
+                            _loadEventData();
+                          });
                         },
                       ),
                     // Connection Status Badge

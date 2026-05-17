@@ -90,12 +90,13 @@ class _InvitePlaylistFriendsScreenState extends State<InvitePlaylistFriendsScree
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.currentUser?.accessToken;
+    final myId = authProvider.currentUser?.id;
     if (token == null) return;
 
     try {
       final results = await UserService().searchUsers(query, token);
       setState(() {
-        _searchResults = results;
+        _searchResults = results.where((u) => u['id'] != myId).toList();
       });
     } catch (e) {
       debugPrint('Error searching users: $e');

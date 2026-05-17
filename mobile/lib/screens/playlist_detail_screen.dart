@@ -146,201 +146,30 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         final auth = Provider.of<AuthProvider>(context, listen: false);
         final isOwner = _playlist?.ownerId == auth.currentUser?.id;
+        final myId = auth.currentUser?.id;
 
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // Combine Owner and Collaborators in a single beautifully structured list
-            final List<Map<String, dynamic>> listItems = [];
-            if (_playlist != null) {
-              listItems.add({
-                'userId': _playlist!.ownerId,
-                'displayName': _playlist!.creatorName,
-                'avatarUrl': _ownerAvatarUrl ?? '',
-                'permission': 'owner',
-                'isOwner': true,
-              });
-            }
-            for (var c in _collaborators) {
-              listItems.add({
-                'userId': c['userId'] as String,
-                'displayName': c['displayName'] as String? ?? 'User',
-                'avatarUrl': c['avatarUrl'] as String? ?? '',
-                'permission': c['permission'] as String? ?? 'editor',
-                'isOwner': false,
-              });
-            }
-
-            return Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'Playlist Collaborators (${listItems.length})',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: listItems.length,
-                      itemBuilder: (context, idx) {
-                        final item = listItems[idx];
-                        final userId = item['userId'] as String;
-                        final displayName = item['displayName'] as String;
-                        final avatarUrl = item['avatarUrl'] as String;
-                        final permission = item['permission'] as String;
-                        final isOwnerRole = item['isOwner'] as bool;
-
-                        final isMe = userId == auth.currentUser?.id;
-
-                        return ListTile(
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => UserPublicProfileScreen(
-                                  userId: userId,
-                                  displayName: displayName,
-                                ),
-                              ),
-                            );
-                          },
-                          leading: CircleAvatar(
-                            radius: 20,
-                            backgroundImage: avatarUrl.isNotEmpty && !avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
-                                ? NetworkImage(avatarUrl)
-                                : null,
-                            backgroundColor: Colors.white.withValues(alpha: 0.1),
-                            child: avatarUrl.isEmpty || avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
-                                ? const Icon(Icons.person, color: Colors.white70)
-                                : null,
-                          ),
-                          title: Text(
-                            '$displayName ${isMe ? "(You)" : ""}',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            permission.toUpperCase(),
-                            style: TextStyle(
-                              color: isOwnerRole
-                                  ? AppTheme.accent
-                                  : permission == 'editor'
-                                      ? const Color(0xFF1DB954) // Spotify Green
-                                      : Colors.white60,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          trailing: isOwner && !isMe && !isOwnerRole
-                              ? PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert, color: Colors.white70),
-                                  color: AppTheme.surface,
-                                  onSelected: (value) async {
-                                    final token = auth.currentUser?.accessToken;
-                                    if (token == null) return;
-                                    final playlistService = PlaylistService();
-
-                                    try {
-                                      if (value == 'make_editor') {
-                                        await playlistService.updateCollaboratorRole(
-                                          widget.playlistId,
-                                          userId,
-                                          'editor',
-                                          token,
-                                        );
-                                      } else if (value == 'make_viewer') {
-                                        await playlistService.updateCollaboratorRole(
-                                          widget.playlistId,
-                                          userId,
-                                          'viewer',
-                                          token,
-                                        );
-                                      } else if (value == 'remove') {
-                                        await playlistService.removeCollaborator(
-                                          widget.playlistId,
-                                          userId,
-                                          token,
-                                        );
-                                      }
-
-                                      // Refresh state
-                                      final freshColabs = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
-                                      
-                                      setState(() {
-                                        _collaborators = freshColabs;
-                                      });
-                                      setModalState(() {});
-
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: const Text('Collaborator updated successfully!'),
-                                            backgroundColor: AppTheme.accent,
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error: $e')),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  itemBuilder: (context) => [
-                                    if (permission != 'editor')
-                                      const PopupMenuItem(
-                                        value: 'make_editor',
-                                        child: Text('Change to Editor', style: TextStyle(color: Colors.white)),
-                                      ),
-                                    if (permission != 'viewer')
-                                      const PopupMenuItem(
-                                        value: 'make_viewer',
-                                        child: Text('Change to Viewer', style: TextStyle(color: Colors.white)),
-                                      ),
-                                    const PopupMenuDivider(height: 1),
-                                    const PopupMenuItem(
-                                      value: 'remove',
-                                      child: Text('Remove Collaborator', style: TextStyle(color: Colors.redAccent)),
-                                    ),
-                                  ],
-                                )
-                              : isOwnerRole
-                                  ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
-                                  : null,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+            return _CollaboratorsSheetContent(
+              playlist: _playlist,
+              collaborators: _collaborators,
+              ownerAvatarUrl: _ownerAvatarUrl,
+              isOwner: isOwner,
+              myId: myId,
+              playlistId: widget.playlistId,
+              onCollaboratorsChanged: (freshColabs) {
+                setState(() {
+                  _collaborators = freshColabs;
+                });
+                setModalState(() {});
+              },
             );
           },
         );
