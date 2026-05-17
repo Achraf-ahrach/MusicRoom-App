@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/audius_service.dart';
 import '../services/user_service.dart';
-import '../models/playlist_model.dart';
 import '../models/track_model.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/auth_provider.dart';
 import '../config/app_theme.dart';
-import 'playlist_detail_screen.dart';
 import 'profile/profile_screen.dart';
 import 'create_event_screen.dart';
 import 'manage_delegations_screen.dart';
@@ -23,13 +21,10 @@ class HomeScreen extends StatefulWidget {
 class HomeScreenState extends State<HomeScreen> {
   final AudiusService _audiusService = AudiusService();
   final UserService _userService = UserService();
-  bool isLoadingPlaylists = true;
   bool isLoadingTracks = true;
   bool isLoadingEvents = true;
-  List<Playlist> trendingPlaylists = [];
   List<Track> trendingTracks = [];
   List<Map<String, dynamic>> events = [];
-  String? playlistError;
   String? trackError;
   String? eventError;
 
@@ -53,7 +48,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchPlaylists(), _fetchTracks()]);
+    await _fetchTracks();
   }
 
   Future<void> _fetchEvents(String token) async {
@@ -77,26 +72,6 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _fetchPlaylists() async {
-    try {
-      setState(() {
-        isLoadingPlaylists = true;
-        playlistError = null;
-      });
-      final playlists = await _audiusService.getTrendingPlaylists();
-      if (mounted)
-        setState(() {
-          trendingPlaylists = playlists;
-          isLoadingPlaylists = false;
-        });
-    } catch (e) {
-      if (mounted)
-        setState(() {
-          playlistError = e.toString();
-          isLoadingPlaylists = false;
-        });
-    }
-  }
 
   Future<void> _fetchTracks() async {
     try {
@@ -268,32 +243,7 @@ class _HomeContent extends StatelessWidget {
               }, childCount: recentPlaylists.length),
             ),
           ),
-          _buildSectionHeader('Trending Playlists'),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 220,
-              child: state.isLoadingPlaylists
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Colors.green),
-                    )
-                  : state.playlistError != null
-                  ? Center(
-                      child: Text(
-                        'Error: ${state.playlistError}',
-                        style: TextStyle(color: Colors.grey[400]),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: state.trendingPlaylists.length,
-                      itemBuilder: (context, index) => _buildPlaylistCard(
-                        context,
-                        state.trendingPlaylists[index],
-                      ),
-                    ),
-            ),
-          ),
+
           _buildEventsSectionHeader(context),
           SliverToBoxAdapter(
             child: SizedBox(
@@ -600,44 +550,6 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaylistCard(BuildContext context, Playlist playlist) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PlaylistDetailScreen(playlistId: playlist.id),
-        ),
-      ),
-      child: Container(
-        width: 155,
-        margin: const EdgeInsets.only(right: 16),
-        child: Column(
-          children: [
-            Container(
-              height: 155,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                image: DecorationImage(
-                  image: NetworkImage(playlist.imageUrl ?? ''),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            Text(
-              playlist.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildTrackCard(Track track) {
     return Container(
