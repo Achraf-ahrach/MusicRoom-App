@@ -4,6 +4,8 @@ class Playlist {
   final String? imageUrl;
   final String creatorName;
   final int version;
+  final String visibility;
+  final String ownerId;
 
   Playlist({
     required this.id,
@@ -11,6 +13,8 @@ class Playlist {
     this.imageUrl,
     required this.creatorName,
     required this.version,
+    this.visibility = 'public',
+    this.ownerId = '',
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
@@ -23,13 +27,17 @@ class Playlist {
     final int parsedVersion = json['version'] is int
         ? json['version'] as int
         : int.tryParse('${json['version'] ?? 0}') ?? 0;
+    final String parsedVisibility = (json['visibility'] ?? 'public').toString();
+    final String parsedOwnerId = (json['ownerId'] ?? '').toString();
 
     return Playlist(
       id: parsedId,
       title: parsedTitle,
-      imageUrl: json['artwork']?['150x150'] ?? json['artwork']?['480x480'],
+      imageUrl: json['coverUrl'] ?? json['artwork']?['150x150'] ?? json['artwork']?['480x480'],
       creatorName: parsedCreatorName,
       version: parsedVersion,
+      visibility: parsedVisibility,
+      ownerId: parsedOwnerId,
     );
   }
 }

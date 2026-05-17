@@ -26,6 +26,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     private final PlaylistTrackRepository playlistTrackRepo;
     private final PlaylistInviteRepository inviteRepo;
     private final UserRepository userRepo;
+    private final com.musicroom.musicroom.repository.SavedPlaylistRepository savedPlaylistRepo;
 
     @Override
     @Transactional
@@ -97,6 +98,15 @@ public class PlaylistServiceImpl implements PlaylistService {
     @Transactional(readOnly = true)
     public List<PlaylistDto> getPublicPlaylists() {
         return playlistRepo.findByVisibility("public")
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PlaylistDto> getPublicPlaylistsByUser(UUID ownerId) {
+        return playlistRepo.findByOwnerIdAndVisibility(ownerId, "public")
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
@@ -194,6 +204,12 @@ public class PlaylistServiceImpl implements PlaylistService {
     }
 
     private PlaylistDto toDto(Playlist playlist) {
+        String coverUrl = null;
+        List<PlaylistTrack> tracks = playlistTrackRepo.findByPlaylistIdOrderByPosition(playlist.getId());
+        if (tracks != null && !tracks.isEmpty()) {
+            coverUrl = tracks.get(0).getTrack().getCoverUrl();
+        }
+
         return PlaylistDto.builder()
                 .id(playlist.getId())
                 .name(playlist.getName())
@@ -203,9 +219,10 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .version(playlist.getVersion())
                 .ownerId(playlist.getOwner().getId())
                 .ownerName(playlist.getOwner().getDisplayName())
-                .trackCount(playlistTrackRepo.countByPlaylistId(playlist.getId()))
+                .trackCount(tracks != null ? tracks.size() : 0)
                 .createdAt(playlist.getCreatedAt())
                 .updatedAt(playlist.getUpdatedAt())
+                .coverUrl(coverUrl)
                 .build();
     }
 
@@ -221,5 +238,41 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .position(pt.getPosition())
                 .addedBy(pt.getAddedBy())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void savePlaylist(UUID userId, UUID playlistId) {
+        if (!savedPlaylistRepo.existsByUserIdAndPlaylistId(userId, playlistId)) {
+            User user = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            Playlist playlist = playlistRepo.findById(playlistId).orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+            
+            SavedPlaylist savedPlaylist = new SavedPlaylist();
+            savedPlaylist.setUser(user);
+            savedPlaylist.setPlaylist(playlist);
+            savedPlaylistRepo.save(savedPlaylist);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unsavePlaylist(UUID userId, UUID playlistId) {
+        savedPlaylistRepo.findByUserIdAndPlaylistId(userId, playlistId)
+                .ifPresent(savedPlaylistRepo::delete);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isPlaylistSaved(UUID userId, UUID playlistId) {
+        return savedPlaylistRepo.existsByUserIdAndPlaylistId(userId, playlistId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PlaylistDto> getSavedPlaylists(UUID userId) {
+        return savedPlaylistRepo.findByUserId(userId)
+                .stream()
+                .map(sp -> toDto(sp.getPlaylist()))
+                .collect(Collectors.toList());
     }
 }

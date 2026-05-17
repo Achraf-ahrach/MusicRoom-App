@@ -5,10 +5,13 @@ import '../services/user_service.dart';
 import '../models/track_model.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/playlist_provider.dart';
 import '../config/app_theme.dart';
 import 'create_event_screen.dart';
 import 'manage_delegations_screen.dart';
 import 'invite_friends_screen.dart';
+import 'profile/profile_screen.dart';
+import 'playlist_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,6 +42,10 @@ class HomeScreenState extends State<HomeScreen> {
           context,
           listen: false,
         ).fetchProfile(token);
+        Provider.of<PlaylistProvider>(
+          context,
+          listen: false,
+        ).loadPlaylists(authProvider.currentUser);
         _fetchEvents(token);
       } else {
         setState(() => isLoadingEvents = false);
@@ -105,118 +112,170 @@ class _HomeContent extends StatelessWidget {
     final state = context.findAncestorStateOfType<HomeScreenState>();
     if (state == null) return const SizedBox.shrink();
 
-    final recentPlaylists = [
-      {
-        'title': 'Chill Lofi Beats',
-        'image':
-            'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=200&h=200&fit=crop',
-      },
-      {
-        'title': '80s Rock Classics',
-        'image':
-            'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=200&h=200&fit=crop',
-      },
-      {
-        'title': 'Gym Motivation',
-        'image':
-            'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200&h=200&fit=crop',
-      },
-      {
-        'title': 'Top Hits 2026',
-        'image':
-            'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=200&h=200&fit=crop',
-      },
-      {
-        'title': 'Jazz & Blues',
-        'image':
-            'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop',
-      },
-      {
-        'title': 'Podcast: Tech',
-        'image':
-            'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=200&h=200&fit=crop',
-      },
-    ];
+    return Consumer<PlaylistProvider>(
+      builder: (context, playlistProvider, child) {
+        final playlists = playlistProvider.playlists;
+        final displayPlaylists = playlists.take(6).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            floating: true,
-            pinned: true,
-            backgroundColor: AppTheme.background,
-            elevation: 0,
-            toolbarHeight: 80,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Home',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverAppBar(
+                floating: true,
+                pinned: true,
+                backgroundColor: AppTheme.background,
+                elevation: 0,
+                toolbarHeight: 80,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
+                    child: Row(
+                      children: [
+                        Consumer<UserProfileProvider>(
+                          builder: (context, profileProvider, child) {
+                            final profile = profileProvider.profile;
+                            final avatarUrl = profile?.avatarUrl;
+
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ProfileScreen(),
+                                  ),
+                                );
+                              },
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Colors.grey[800],
+                                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                                    ? NetworkImage(avatarUrl)
+                                    : null,
+                                child: avatarUrl == null || avatarUrl.isEmpty || avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 18,
+                                        color: Colors.white70,
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        const Text(
+                          'Home',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final playlist = recentPlaylists[index];
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          bottomLeft: Radius.circular(4),
-                        ),
-                        child: Image.network(
-                          playlist['image']!,
-                          width: 55,
-                          height: 55,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          playlist['title']!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
+              if (displayPlaylists.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 3,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final playlist = displayPlaylists[index];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PlaylistDetailScreen(
+                                  playlistId: playlist.id,
+                                  initialPlaylist: playlist,
+                                  useBackend: true,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[900],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(4),
+                                    bottomLeft: Radius.circular(4),
+                                  ),
+                                  child: playlist.imageUrl != null && playlist.imageUrl!.isNotEmpty
+                                      ? Image.network(
+                                          playlist.imageUrl!,
+                                          width: 55,
+                                          height: 55,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Container(
+                                            width: 55,
+                                            height: 55,
+                                            color: Colors.grey[800],
+                                            child: const Icon(Icons.music_note, color: Colors.white54),
+                                          ),
+                                        )
+                                      : Container(
+                                          width: 55,
+                                          height: 55,
+                                          color: Colors.grey[800],
+                                          child: const Icon(Icons.music_note, color: Colors.white54),
+                                        ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          playlist.title,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (playlist.visibility == 'private') ...[
+                                        const SizedBox(width: 4),
+                                        const Padding(
+                                          padding: EdgeInsets.only(right: 8.0),
+                                          child: Icon(
+                                            Icons.lock_outline_rounded,
+                                            color: Colors.redAccent,
+                                            size: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                        );
+                      },
+                      childCount: displayPlaylists.length,
+                    ),
                   ),
-                );
-              }, childCount: recentPlaylists.length),
-            ),
-          ),
+                ),
 
           _buildEventsSectionHeader(context),
           SliverToBoxAdapter(
@@ -444,6 +503,8 @@ class _HomeContent extends StatelessWidget {
         ],
       ),
     );
+  },
+);
   }
 
   Widget _buildSectionHeader(String title) {

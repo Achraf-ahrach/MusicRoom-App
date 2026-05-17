@@ -6,6 +6,8 @@ import '../services/audius_service.dart';
 import '../models/track_model.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/add_to_playlist_modal.dart';
+import '../providers/user_profile_provider.dart';
+import 'profile/profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -142,6 +144,38 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
               child: Row(
                 children: [
+                  Consumer<UserProfileProvider>(
+                    builder: (context, profileProvider, child) {
+                      final profile = profileProvider.profile;
+                      final avatarUrl = profile?.avatarUrl;
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileScreen(),
+                            ),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.grey[800],
+                          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty && !avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                              ? NetworkImage(avatarUrl)
+                              : null,
+                          child: avatarUrl == null || avatarUrl.isEmpty || avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 18,
+                                  color: Colors.white70,
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 16),
                   const Text(
                     'Search',
                     style: TextStyle(

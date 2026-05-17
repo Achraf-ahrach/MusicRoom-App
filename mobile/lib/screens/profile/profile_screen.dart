@@ -169,11 +169,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // Avatar
                         CircleAvatar(
                           radius: 60,
-                          backgroundImage: profile?.avatarUrl != null
-                              ? NetworkImage(profile!.avatarUrl!)
+                          backgroundImage: profile?.avatarUrl != null && !profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
+                              ? NetworkImage(profile.avatarUrl!)
                               : null,
                           backgroundColor: Colors.grey[800],
-                          child: profile?.avatarUrl == null
+                          child: profile?.avatarUrl == null || profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
                               ? const Icon(
                                   Icons.person,
                                   size: 60,
@@ -287,6 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               title,
                               'Playlist',
                               Icons.music_note,
+                              imageUrl: playlist.imageUrl,
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -380,7 +381,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String title,
     String subtitle,
     IconData iconPlaceholder,
-    {VoidCallback? onTap}
+    {String? imageUrl,
+    VoidCallback? onTap}
   ) {
     return InkWell(
       onTap: onTap,
@@ -392,8 +394,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               width: 60,
               height: 60,
-              color: Colors.grey[800],
-              child: Icon(iconPlaceholder, color: Colors.grey[400], size: 30),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.grey[800],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, _, __) => Icon(iconPlaceholder, color: Colors.grey[400], size: 30),
+                    )
+                  : Icon(iconPlaceholder, color: Colors.grey[400], size: 30),
             ),
             const SizedBox(width: 16),
             Expanded(

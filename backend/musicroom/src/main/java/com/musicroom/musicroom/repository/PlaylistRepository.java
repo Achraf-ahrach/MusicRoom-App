@@ -14,8 +14,12 @@ public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
     @Query("SELECT p FROM Playlist p JOIN FETCH p.owner WHERE p.visibility = :visibility")
     List<Playlist> findByVisibility(@Param("visibility") String visibility);
 
+    @Query("SELECT p FROM Playlist p JOIN FETCH p.owner WHERE p.owner.id = :ownerId AND p.visibility = :visibility")
+    List<Playlist> findByOwnerIdAndVisibility(@Param("ownerId") UUID ownerId, @Param("visibility") String visibility);
+
     @Query("SELECT p FROM Playlist p JOIN FETCH p.owner WHERE " +
            "p.owner.id = :userId OR " +
+           "p.visibility = 'public' OR " +
            "EXISTS (SELECT pi FROM PlaylistInvite pi WHERE pi.playlist.id = p.id " +
            "AND pi.user.id = :userId)")
     List<Playlist> findAccessibleByUserId(@Param("userId") UUID userId);

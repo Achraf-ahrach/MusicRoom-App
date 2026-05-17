@@ -64,6 +64,8 @@ class PlaylistProvider with ChangeNotifier {
       imageUrl: current.imageUrl,
       creatorName: current.creatorName,
       version: current.version + 1,
+      visibility: current.visibility,
+      ownerId: current.ownerId,
     );
   }
 
@@ -161,5 +163,68 @@ class PlaylistProvider with ChangeNotifier {
     _errorMessage = null;
     _incrementPlaylistVersion(playlist.id);
     notifyListeners();
+  }
+
+  Future<Playlist> updatePlaylistVisibility(Playlist playlist, String visibility, UserModel? user) async {
+    final resolvedUser = _resolveUser(user);
+    if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      Playlist updated = await _withAuthRetry(
+        (token) => _playlistService.updatePlaylistVisibility(playlist.id, visibility, token),
+        fallbackToken: resolvedUser.accessToken,
+      );
+
+      final index = _playlists.indexWhere((p) => p.id == playlist.id);
+      if (index != -1) {
+        _playlists[index] = updated;
+      }
+      _errorMessage = null;
+      notifyListeners();
+      return updated;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('Failed to update playlist visibility: $e');
+      rethrow;
+    }
+  }
+  Future<bool> isPlaylistSaved(String playlistId, UserModel? user) async {
+    final resolvedUser = _resolveUser(user);
+    if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
+      return false;
+    }
+    try {
+      return await _withAuthRetry(
+        (token) => _playlistService.isPlaylistSaved(playlistId, token),
+        fallbackToken: resolvedUser.accessToken,
+      );
+    } catch (e) {
+      debugPrint('Failed to check if playlist is saved: $e');
+      return false;
+    }
+  }
+
+  Future<void> savePlaylist(String playlistId, UserModel? user) async {
+    final resolvedUser = _resolveUser(user);
+    if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
+      throw Exception('User not authenticated');
+    }
+    await _withAuthRetry(
+      (token) => _playlistService.savePlaylist(playlistId, token),
+      fallbackToken: resolvedUser.accessToken,
+    );
+  }
+
+  Future<void> unsavePlaylist(String playlistId, UserModel? user) async {
+    final resolvedUser = _resolveUser(user);
+    if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
+      throw Exception('User not authenticated');
+    }
+    await _withAuthRetry(
+      (token) => _playlistService.unsavePlaylist(playlistId, token),
+      fallbackToken: resolvedUser.accessToken,
+    );
   }
 }

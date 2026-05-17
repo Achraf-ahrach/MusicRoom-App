@@ -6,6 +6,7 @@ class LibraryListItem extends StatelessWidget {
   final String subtitle;
   final String? imageUrl;
   final bool isCircular;
+  final bool isPrivate;
   final VoidCallback? onTap;
 
   const LibraryListItem({
@@ -14,6 +15,7 @@ class LibraryListItem extends StatelessWidget {
     required this.subtitle,
     this.imageUrl,
     this.isCircular = false,
+    this.isPrivate = false,
     this.onTap,
   });
 
@@ -50,15 +52,29 @@ class LibraryListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      if (isPrivate) ...[
+                        const Icon(
+                          Icons.lock_outline_rounded,
+                          color: Colors.redAccent,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(

@@ -65,6 +65,61 @@ class PlaylistService {
     );
   }
 
+  Future<void> savePlaylist(String playlistId, String token) async {
+    final response = await http.post(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/save'),
+      headers: _headers(token),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save playlist: ${response.body}');
+    }
+  }
+
+  Future<void> unsavePlaylist(String playlistId, String token) async {
+    final response = await http.delete(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/save'),
+      headers: _headers(token),
+    );
+    if (response.statusCode != 204) {
+      throw Exception('Failed to unsave playlist: ${response.body}');
+    }
+  }
+
+  Future<bool> isPlaylistSaved(String playlistId, String token) async {
+    final response = await http.get(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/saved'),
+      headers: _headers(token),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as bool;
+    }
+    return false;
+  }
+
+  Future<List<Playlist>> getSavedPlaylists(String token) async {
+    final response = await http.get(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/saved'),
+      headers: _headers(token),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Playlist.fromJson(json)).toList();
+    }
+    throw Exception('Failed to load saved playlists (${response.statusCode})');
+  }
+
+  Future<List<Playlist>> getPublicPlaylistsByUser(String userId, String token) async {
+    final response = await http.get(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/public/user/$userId'),
+      headers: _headers(token),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Playlist.fromJson(json)).toList();
+    }
+    return [];
+  }
+
   // Create a new playlist
   Future<Playlist> createPlaylist(String name, String description, String visibility, String token) async {
     final response = await http.post(
@@ -167,5 +222,41 @@ class PlaylistService {
         'version': version,
       }),
     );
+  }
+
+  Future<Playlist> getPlaylistById(String playlistId, String token) async {
+    final response = await http.get(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId'),
+      headers: _headers(token),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      return Playlist.fromJson(data);
+    } else {
+      throw Exception(
+        'Failed to load playlist (${response.statusCode}): ${utf8.decode(response.bodyBytes)}',
+      );
+    }
+  }
+
+  // Update playlist visibility
+  Future<Playlist> updatePlaylistVisibility(String playlistId, String visibility, String token) async {
+    final response = await http.put(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId'),
+      headers: _headers(token),
+      body: jsonEncode({
+        'visibility': visibility,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      return Playlist.fromJson(data);
+    } else {
+      throw Exception(
+        'Failed to update playlist visibility (${response.statusCode}): ${utf8.decode(response.bodyBytes)}',
+      );
+    }
   }
 }

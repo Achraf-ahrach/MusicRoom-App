@@ -47,6 +47,12 @@ public class PlaylistController {
         return ResponseEntity.ok(playlistService.getPublicPlaylists());
     }
 
+    @Operation(summary = "Playlists publiques d'un utilisateur")
+    @GetMapping("/public/user/{userId}")
+    public ResponseEntity<List<PlaylistDto>> getPublicPlaylistsByUser(@PathVariable UUID userId) {
+        return ResponseEntity.ok(playlistService.getPublicPlaylistsByUser(userId));
+    }
+
     @Operation(summary = "Détail d'une playlist")
     @GetMapping("/{id}")
     public ResponseEntity<PlaylistDto> getPlaylistById(
@@ -106,5 +112,42 @@ public class PlaylistController {
 
         UUID userId = UUID.fromString(userDetails.getUsername());
         return ResponseEntity.ok(playlistService.updatePlaylistCover(userId, id, cover));
+    }
+
+    @Operation(summary = "Sauvegarder une playlist")
+    @PostMapping("/{id}/save")
+    public ResponseEntity<Void> savePlaylist(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        playlistService.savePlaylist(userId, id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Retirer une playlist des sauvegardes")
+    @DeleteMapping("/{id}/save")
+    public ResponseEntity<Void> unsavePlaylist(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        playlistService.unsavePlaylist(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Vérifier si une playlist est sauvegardée")
+    @GetMapping("/{id}/saved")
+    public ResponseEntity<Boolean> isPlaylistSaved(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(playlistService.isPlaylistSaved(userId, id));
+    }
+
+    @Operation(summary = "Liste des playlists sauvegardées")
+    @GetMapping("/saved")
+    public ResponseEntity<List<PlaylistDto>> getSavedPlaylists(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(playlistService.getSavedPlaylists(userId));
     }
 }

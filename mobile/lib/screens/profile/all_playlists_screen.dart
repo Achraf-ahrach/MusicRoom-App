@@ -99,8 +99,18 @@ class AllPlaylistsScreen extends StatelessWidget {
                         Container(
                           width: 60,
                           height: 60,
-                          color: Colors.grey[800],
-                          child: Icon(Icons.music_note, color: Colors.grey[400], size: 30),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.grey[800],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: playlist['imageUrl'] != null && playlist['imageUrl'].toString().isNotEmpty
+                              ? Image.network(
+                                  playlist['imageUrl'].toString(),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, _, __) => const Icon(Icons.music_note, color: Colors.grey, size: 30),
+                                )
+                              : const Icon(Icons.music_note, color: Colors.grey, size: 30),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
