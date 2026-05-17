@@ -291,14 +291,15 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final googleSignIn = GoogleSignIn(
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize(
         // iOS: uses clientId (no GoogleService-Info.plist without Firebase)
         clientId: dotenv.env['GOOGLE_IOS_CLIENT_ID'],
         // Android: uses serverClientId (web client ID) to obtain an idToken
         serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
       );
 
-      final googleUser = await googleSignIn.signIn();
+      final googleUser = await googleSignIn.authenticate();
 
       if (googleUser == null) {
         // User cancelled the picker

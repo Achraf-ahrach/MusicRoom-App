@@ -11,7 +11,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 class AuthService {
   // Get base URL from .env file
   String get _effectiveBaseUrl {
-  return "https://anisa-phenetic-predictively.ngrok-free.dev";
+  // return "https://anisa-phenetic-predictively.ngrok-free.dev";
+  return '${dotenv.env['API_BASE_URL'] ?? 'http://localhost:8080'}';
   }
 
   static const String _authPath = '/api/auth';

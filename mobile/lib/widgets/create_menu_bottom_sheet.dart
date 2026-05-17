@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
-import '../screens/create_room_screen.dart';
+import '../screens/create_event_screen.dart';
 import '../screens/create_playlist_screen.dart';
 
 class CreateMenuOverlay extends StatelessWidget {
@@ -60,7 +60,7 @@ class CreateMenuOverlay extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const CreateRoomScreen(),
+                      builder: (context) => const CreateEventScreen(),
                     ),
                   );
                 },

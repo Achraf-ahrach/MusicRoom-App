@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/event_service.dart';
 
-class CreateRoomScreen extends StatefulWidget {
-  const CreateRoomScreen({super.key});
+class CreateEventScreen extends StatefulWidget {
+  const CreateEventScreen({super.key});
 
   @override
-  State<CreateRoomScreen> createState() => _CreateRoomScreenState();
+  State<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
-class _CreateRoomScreenState extends State<CreateRoomScreen> {
+class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _isPrivate = false;
   bool _allowGuests = true;
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +59,11 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_a_photo_rounded, color: Colors.white54, size: 40),
+                    Icon(
+                      Icons.add_a_photo_rounded,
+                      color: Colors.white54,
+                      size: 40,
+                    ),
                     SizedBox(height: 12),
                     Text(
                       'Add Cover Image',
@@ -69,19 +78,34 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
             // ── Room Name ────────────────────────────────────────────────────
             const Text(
               'Event Name',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            _buildTextField('Give your event a name...'),
+            _buildTextField(
+              'Give your event a name...',
+              controller: _nameController,
+            ),
             const SizedBox(height: 24),
 
             // ── Room Description ─────────────────────────────────────────────
             const Text(
               'Description',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            _buildTextField('What should people expect?', maxLines: 3),
+            _buildTextField(
+              'What should people expect?',
+              maxLines: 3,
+              controller: _descriptionController,
+            ),
             const SizedBox(height: 32),
 
             _buildToggle(
@@ -97,11 +121,42 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement creation logic
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Event created successfully!')),
+                onPressed: () async {
+                  final authProvider = Provider.of<AuthProvider>(
+                    context,
+                    listen: false,
                   );
+                  final token = authProvider.currentUser?.accessToken;
+
+                  if (token == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'You must be logged in to create an event.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  try {
+                    await EventService().createEvent(
+                      _nameController.text,
+                      _descriptionController.text,
+                      _isPrivate,
+                      token,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Event created successfully!'),
+                      ),
+                    );
+                    Navigator.pop(context);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to create event: $e')),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.accent,
@@ -123,13 +178,18 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
     );
   }
 
-  Widget _buildTextField(String hint, {int maxLines = 1}) {
+  Widget _buildTextField(
+    String hint, {
+    int maxLines = 1,
+    TextEditingController? controller,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: TextField(
+        controller: controller,
         maxLines: maxLines,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
@@ -142,7 +202,12 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
     );
   }
 
-  Widget _buildToggle(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildToggle(
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -151,7 +216,11 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 4),
               Text(

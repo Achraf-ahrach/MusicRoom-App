@@ -155,4 +155,23 @@ class UserService {
     } catch (_) {}
     return 0; // fallback
   }
+
+  /// Fetches friends
+  Future<List<dynamic>> getFriends(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_effectiveBaseUrl$_friendshipsPath'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (_) {}
+    return []; // fallback
+  }
 }
