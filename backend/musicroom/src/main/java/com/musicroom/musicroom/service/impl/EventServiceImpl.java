@@ -296,6 +296,14 @@ public class EventServiceImpl implements EventService {
     }
 
     private EventDto toDto(Event event) {
+        String firstTrackCover = null;
+        if (event.getPlaylist() != null && !event.getPlaylist().isEmpty()) {
+            EventPlaylistEntry first = event.getPlaylist().get(0);
+            if (first.getTrack() != null) {
+                firstTrackCover = first.getTrack().getCoverUrl();
+            }
+        }
+
         return EventDto.builder()
                 .id(event.getId())
                 .name(event.getName())
@@ -309,9 +317,11 @@ public class EventServiceImpl implements EventService {
                 .active(event.isActive())
                 .ownerId(event.getOwner().getId())
                 .ownerName(event.getOwner().getDisplayName())
-                .trackCount(event.getPlaylist().size())
+                .trackCount(event.getPlaylist() != null ? event.getPlaylist().size() : 0)
                 .participantCount(1 + (event.getInvites() != null ? event.getInvites().size() : 0))
                 .createdAt(event.getCreatedAt())
+                .coverUrl(event.getCoverUrl())
+                .firstTrackCoverUrl(firstTrackCover)
                 .build();
     }
 

@@ -22,4 +22,5 @@ public class EventDto {
     private int participantCount;
     private LocalDateTime createdAt;
     private String coverUrl;
+    private String firstTrackCoverUrl;
 }

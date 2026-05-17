@@ -65,17 +65,38 @@ class HomeScreenState extends State<HomeScreen> {
         eventError = null;
       });
       final fetchedEvents = await _userService.getAllEvents(token);
-      if (mounted)
+      if (mounted) {
         setState(() {
           events = fetchedEvents;
           isLoadingEvents = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (e.toString().contains('401') || e.toString().contains('403')) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final success = await authProvider.refreshTokens();
+        if (success) {
+          final newToken = authProvider.currentUser?.accessToken;
+          if (newToken != null) {
+            try {
+              final refetched = await _userService.getAllEvents(newToken);
+              if (mounted) {
+                setState(() {
+                  events = refetched;
+                  isLoadingEvents = false;
+                });
+              }
+              return;
+            } catch (_) {}
+          }
+        }
+      }
+      if (mounted) {
         setState(() {
           eventError = e.toString();
           isLoadingEvents = false;
         });
+      }
     }
   }
 
@@ -292,9 +313,23 @@ class _HomeContent extends StatelessWidget {
                     )
                   : state.eventError != null
                   ? Center(
-                      child: Text(
-                        'Error loading events',
-                        style: TextStyle(color: Colors.grey[400]),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Error loading events',
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: () {
+                              final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
+                              if (token != null) state._fetchEvents(token);
+                            },
+                            icon: const Icon(Icons.refresh, color: Colors.green, size: 18),
+                            label: const Text('Retry', style: TextStyle(color: Colors.green)),
+                          ),
+                        ],
                       ),
                     )
                   : ListView.builder(
@@ -302,7 +337,7 @@ class _HomeContent extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       itemCount: state.events.length + 1,
                       itemBuilder: (context, index) {
-                        if (index == 0) {
+                        if (index == state.events.length) {
                           return GestureDetector(
                             onTap: () {
                               Navigator.push(
@@ -368,8 +403,17 @@ class _HomeContent extends StatelessWidget {
                           );
                         }
 
-                        final event = state.events[index - 1];
+                        final event = state.events[index];
                         final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+                        // Decide on cover image: first music in the room or event cover
+                        final String? firstTrackCover = event['firstTrackCoverUrl'];
+                        final String? eventCover = event['coverUrl'];
+                        final String? imageUrl = (firstTrackCover != null && firstTrackCover.isNotEmpty)
+                            ? firstTrackCover
+                            : (eventCover != null && eventCover.isNotEmpty ? eventCover : null);
+
+                        final int participantCount = event['participantCount'] ?? 1;
 
                         return GestureDetector(
                           onTap: () {
@@ -398,34 +442,115 @@ class _HomeContent extends StatelessWidget {
                                 color: Colors.green.withValues(alpha: 0.2),
                               ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.event,
-                                  color: Colors.green,
-                                  size: 40,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  event['name'] ?? "Unnamed Event",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        if (imageUrl != null && imageUrl.startsWith('http'))
+                                          Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                decoration: const BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    colors: [Colors.green, Colors.black87],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.music_note,
+                                                  color: Colors.white70,
+                                                  size: 32,
+                                                ),
+                                              );
+                                            },
+                                          )
+                                        else
+                                          Container(
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [Colors.green, Colors.black87],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.event,
+                                              color: Colors.white70,
+                                              size: 32,
+                                            ),
+                                          ),
+                                        // Participant Count Badge Overlay
+                                        Positioned(
+                                          top: 6,
+                                          right: 6,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.6),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.people,
+                                                  color: Colors.green,
+                                                  size: 10,
+                                                ),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  '$participantCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  event['description'] ?? "No description",
-                                  style: TextStyle(
-                                    color: Colors.grey[400],
-                                    fontSize: 12,
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          event['name'] ?? "Unnamed Event",
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          event['description'] ?? "No description",
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 10,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );

@@ -65,32 +65,48 @@ class UserService {
     }
   }
 
-  /// Fetches all events
+  /// Fetches all events (with retry and timeout)
   Future<List<Map<String, dynamic>>> getAllEvents(String token) async {
-    try {
-      final url = Uri.parse('$_effectiveBaseUrl$_eventsPath');
-      print('DEBUG [getAllEvents]: Requesting $url with token length ${token.length}');
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      );
+    const maxRetries = 2;
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final url = Uri.parse('$_effectiveBaseUrl$_eventsPath');
+        print('DEBUG [getAllEvents]: Attempt ${attempt + 1} - Requesting $url');
+        final response = await http.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ).timeout(const Duration(seconds: 10));
 
-      print('DEBUG [getAllEvents]: Response status = ${response.statusCode}');
-      print('DEBUG [getAllEvents]: Response body = ${response.body}');
+        print('DEBUG [getAllEvents]: Response status = ${response.statusCode}');
 
-      if (response.statusCode == 200) {
-        final List<dynamic> allEvents = jsonDecode(response.body);
-        return allEvents.cast<Map<String, dynamic>>();
-      } else {
-        print('DEBUG [getAllEvents]: Failed to load events, status = ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final List<dynamic> allEvents = jsonDecode(response.body);
+          print('DEBUG [getAllEvents]: Got ${allEvents.length} events');
+          return allEvents.cast<Map<String, dynamic>>();
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          throw Exception('Auth error: ${response.statusCode}');
+        } else {
+          print('DEBUG [getAllEvents]: Failed, status = ${response.statusCode}');
+          if (attempt < maxRetries) {
+            await Future.delayed(Duration(milliseconds: 500 * (attempt + 1)));
+            continue;
+          }
+        }
+      } catch (e, stackTrace) {
+        print('DEBUG [getAllEvents]: Attempt ${attempt + 1} exception = $e');
+        if (e.toString().contains('401') || e.toString().contains('403')) {
+          rethrow;
+        }
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(milliseconds: 500 * (attempt + 1)));
+          continue;
+        }
+        print('DEBUG [getAllEvents]: All retries exhausted. Stacktrace = $stackTrace');
       }
-    } catch (e, stackTrace) {
-      print('DEBUG [getAllEvents]: Exception caught = $e');
-      print('DEBUG [getAllEvents]: Stacktrace = $stackTrace');
     }
     return [];
   }

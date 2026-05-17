@@ -835,12 +835,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 // ══════════════════════════════════════════════════════════════════════════════
 class _CollaboratorsSheetContent extends StatefulWidget {
   final Playlist? playlist;
-  final List<Map<String, dynamic>> collaborators;
+  final List<dynamic> collaborators;
   final String? ownerAvatarUrl;
   final bool isOwner;
   final String? myId;
   final String playlistId;
-  final Function(List<Map<String, dynamic>>) onCollaboratorsChanged;
+  final Function(List<dynamic>) onCollaboratorsChanged;
 
   const _CollaboratorsSheetContent({
     required this.playlist,
@@ -886,7 +886,7 @@ class _CollaboratorsSheetContentState extends State<_CollaboratorsSheetContent> 
     try {
       final results = await _userService.searchUsers(query.trim(), token);
       // Filter out: self, owner, existing collaborators
-      final collabIds = widget.collaborators.map((c) => c['userId'] as String).toSet();
+      final collabIds = widget.collaborators.map((c) => (c as Map<String, dynamic>)['userId'] as String).toSet();
       collabIds.add(widget.playlist?.ownerId ?? '');
       final filtered = results
           .where((u) => u['id'] != widget.myId && !collabIds.contains(u['id']))
