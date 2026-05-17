@@ -202,6 +202,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   void _showAddTrackSheet() {
+    if (_userRole == 'viewer') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(
+            'Viewers are not allowed to suggest tracks. You can only listen and vote.',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+      return;
+    }
     if (_tracks.length >= 15) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -311,7 +323,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   actions: [
-                    if (_userRole == 'editor')
+                    if (_userRole == 'editor' || _userRole == 'owner')
                       IconButton(
                         icon: const Icon(Icons.settings, color: Colors.white),
                         onPressed: () {
@@ -409,7 +421,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: _userRole == 'editor'
+                                color: (_userRole == 'editor' || _userRole == 'owner')
                                     ? Colors.greenAccent.withOpacity(0.2)
                                     : Colors.purple.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
@@ -417,7 +429,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               child: Text(
                                 _userRole.toUpperCase(),
                                 style: TextStyle(
-                                  color: _userRole == 'editor' ? Colors.greenAccent : Colors.purpleAccent,
+                                  color: (_userRole == 'editor' || _userRole == 'owner') ? Colors.greenAccent : Colors.purpleAccent,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -469,36 +481,37 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Add Music & Play All Row
-                        Row(
-                          children: [
-                            // "Add Music" Suggest Button (Accessible to everyone as requested, or editor only - here we allow all)
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
+                        // Add Music Suggest Button (Only visible for owner / editor roles, not viewers)
+                        if (_userRole != 'viewer') ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    elevation: 4,
                                   ),
-                                  elevation: 4,
-                                ),
-                                icon: const Icon(Icons.add_rounded, size: 22),
-                                label: const Text(
-                                  'Suggest Music',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.2,
+                                  icon: const Icon(Icons.add_rounded, size: 22),
+                                  label: const Text(
+                                    'Suggest Music',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.2,
+                                    ),
                                   ),
+                                  onPressed: _showAddTrackSheet,
                                 ),
-                                onPressed: _showAddTrackSheet,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -707,14 +720,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ),
                                 ),
 
-                                // Play button (Only for Editor/Owner, or everyone to stream)
-                                IconButton(
-                                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.white70),
-                                  onPressed: () {
-                                    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-                                    audioProvider.playTrack(track);
-                                  },
-                                ),
+                                // Play button (Only for Editor/Owner, hidden for viewers)
+                                if (_userRole != 'viewer')
+                                  IconButton(
+                                    icon: const Icon(Icons.play_arrow_rounded, color: Colors.white70),
+                                    onPressed: () {
+                                      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                                      audioProvider.playTrack(track);
+                                    },
+                                  ),
 
                                 // Voting Widget
                                 Row(

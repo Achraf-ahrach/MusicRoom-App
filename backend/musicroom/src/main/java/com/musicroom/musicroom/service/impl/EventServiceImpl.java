@@ -152,6 +152,23 @@ public class EventServiceImpl implements EventService {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        boolean isOwner = event.getOwner().getId().equals(userId);
+        if (!isOwner) {
+            Optional<EventInvite> inviteOpt = inviteRepo.findByEventIdAndUserId(eventId, userId);
+            if (inviteOpt.isPresent()) {
+                EventInvite invite = inviteOpt.get();
+                if (!"admin".equalsIgnoreCase(invite.getRole())) {
+                    throw new UnauthorizedException("Viewers are not allowed to suggest tracks. You can only listen and vote.");
+                }
+            } else {
+                String visibility = event.getVisibility() != null ? event.getVisibility() : "public";
+                if (!"public".equalsIgnoreCase(visibility)) {
+                    throw new UnauthorizedException("You do not have access to this event.");
+                }
+                throw new UnauthorizedException("Guest viewers are not allowed to suggest tracks. You can only listen and vote.");
+            }
+        }
+
         Track track = trackRepo
                 .findByExternalIdAndProvider(request.getExternalId(), request.getProvider())
                 .orElseGet(() -> trackRepo.save(Track.builder()
@@ -269,7 +286,7 @@ public class EventServiceImpl implements EventService {
 
         if (isOwner) {
             return java.util.Map.of(
-                "role", "editor",
+                "role", "owner",
                 "allowed", true,
                 "visibility", visibility
             );
