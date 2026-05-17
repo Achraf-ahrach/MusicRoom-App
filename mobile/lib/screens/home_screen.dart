@@ -12,6 +12,7 @@ import 'manage_delegations_screen.dart';
 import 'invite_friends_screen.dart';
 import 'profile/profile_screen.dart';
 import 'playlist_detail_screen.dart';
+import '../providers/audio_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +27,7 @@ class HomeScreenState extends State<HomeScreen> {
   bool isLoadingTracks = true;
   bool isLoadingEvents = true;
   List<Track> trendingTracks = [];
+  List<Track> randomTracks = [];
   List<Map<String, dynamic>> events = [];
   String? trackError;
   String? eventError;
@@ -85,10 +87,14 @@ class HomeScreenState extends State<HomeScreen> {
         isLoadingTracks = true;
         trackError = null;
       });
-      final tracks = await _audiusService.getTrendingTracks();
+      final futures = await Future.wait([
+        _audiusService.getTrendingTracks(),
+        _audiusService.getRandomTracks(),
+      ]);
       if (mounted)
         setState(() {
-          trendingTracks = tracks;
+          trendingTracks = futures[0];
+          randomTracks = futures[1];
           isLoadingTracks = false;
         });
     } catch (e) {
@@ -495,7 +501,31 @@ class _HomeContent extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       itemCount: state.trendingTracks.length,
                       itemBuilder: (context, index) =>
-                          _buildTrackCard(state.trendingTracks[index]),
+                          _buildTrackCard(context, state.trendingTracks[index], state.trendingTracks, index),
+                    ),
+            ),
+          ),
+          _buildSectionHeader('Random Tracks'),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 220,
+              child: state.isLoadingTracks
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.green),
+                    )
+                  : state.trackError != null
+                  ? Center(
+                      child: Text(
+                        'Error',
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: state.randomTracks.length,
+                      itemBuilder: (context, index) =>
+                          _buildTrackCard(context, state.randomTracks[index], state.randomTracks, index),
                     ),
             ),
           ),
@@ -586,33 +616,38 @@ class _HomeContent extends StatelessWidget {
   }
 
 
-  Widget _buildTrackCard(Track track) {
-    return Container(
-      width: 155,
-      margin: const EdgeInsets.only(right: 16),
-      child: Column(
-        children: [
-          Container(
-            height: 155,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              image: DecorationImage(
-                image: NetworkImage(track.imageUrl ?? ''),
-                fit: BoxFit.cover,
+  Widget _buildTrackCard(BuildContext context, Track track, List<Track> playlist, int index) {
+    return GestureDetector(
+      onTap: () {
+        Provider.of<AudioProvider>(context, listen: false).playTrack(track, playlist: playlist, index: index);
+      },
+      child: Container(
+        width: 155,
+        margin: const EdgeInsets.only(right: 16),
+        child: Column(
+          children: [
+            Container(
+              height: 155,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                image: DecorationImage(
+                  image: NetworkImage(track.imageUrl ?? ''),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
-          ),
-          Text(
-            track.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            Text(
+              track.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

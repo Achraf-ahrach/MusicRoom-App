@@ -50,6 +50,26 @@ class AudiusService {
     }
   }
 
+  Future<List<Track>> getRandomTracks() async {
+    try {
+      final response = await http
+          .get(_buildUri('/tracks/trending', {'time': 'allTime', 'limit': '50'}))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> tracksJson = data['data'] ?? [];
+        final tracks = tracksJson.map((json) => Track.fromJson(json)).toList();
+        tracks.shuffle();
+        return tracks.take(10).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Audius Error (random tracks): $e');
+      return [];
+    }
+  }
+
   // Example of using the requested endpoint, although for counting transactions
   // Get a specific playlist by ID
   Future<Playlist?> getPlaylist(String playlistId) async {

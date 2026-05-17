@@ -203,6 +203,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           await playlistService.deletePlaylist(widget.playlistId, auth.currentUser!.accessToken);
                           
                           if (mounted) {
+                            final provider = Provider.of<PlaylistProvider>(context, listen: false);
+                            provider.removePlaylistLocal(widget.playlistId);
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Playlist deleted successfully'),

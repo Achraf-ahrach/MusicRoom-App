@@ -42,6 +42,18 @@ public class Playlist {
     @Builder.Default
     private List<PlaylistTrack> tracks = new ArrayList<>();
 
+    @OneToMany(mappedBy = "playlist", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PlaylistOperation> operations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "playlist", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PlaylistInvite> invites = new ArrayList<>();
+
+    @OneToMany(mappedBy = "playlist", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<SavedPlaylist> savedPlaylists = new ArrayList<>();
+
     @Column(name = "created_at", updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

@@ -165,6 +165,11 @@ class PlaylistProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void removePlaylistLocal(String playlistId) {
+    _playlists.removeWhere((p) => p.id == playlistId);
+    notifyListeners();
+  }
+
   Future<void> removeTrackFromPlaylist(Playlist playlist, String playlistTrackId, UserModel? user) async {
     final resolvedUser = _resolveUser(user);
     if (resolvedUser == null || resolvedUser.accessToken.isEmpty) {
