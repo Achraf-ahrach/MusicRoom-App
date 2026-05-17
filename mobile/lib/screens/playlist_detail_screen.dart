@@ -829,3 +829,362 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     );
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Collaborators Sheet Content — with search, invite, role management
+// ══════════════════════════════════════════════════════════════════════════════
+class _CollaboratorsSheetContent extends StatefulWidget {
+  final Playlist? playlist;
+  final List<Map<String, dynamic>> collaborators;
+  final String? ownerAvatarUrl;
+  final bool isOwner;
+  final String? myId;
+  final String playlistId;
+  final Function(List<Map<String, dynamic>>) onCollaboratorsChanged;
+
+  const _CollaboratorsSheetContent({
+    required this.playlist,
+    required this.collaborators,
+    required this.ownerAvatarUrl,
+    required this.isOwner,
+    required this.myId,
+    required this.playlistId,
+    required this.onCollaboratorsChanged,
+  });
+
+  @override
+  State<_CollaboratorsSheetContent> createState() => _CollaboratorsSheetContentState();
+}
+
+class _CollaboratorsSheetContentState extends State<_CollaboratorsSheetContent> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final UserService _userService = UserService();
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
+  final Set<String> _invitingIds = {};
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.currentUser?.accessToken;
+    if (token == null) return;
+
+    setState(() => _isSearching = true);
+    try {
+      final results = await _userService.searchUsers(query.trim(), token);
+      // Filter out: self, owner, existing collaborators
+      final collabIds = widget.collaborators.map((c) => c['userId'] as String).toSet();
+      collabIds.add(widget.playlist?.ownerId ?? '');
+      final filtered = results
+          .where((u) => u['id'] != widget.myId && !collabIds.contains(u['id']))
+          .toList();
+      if (mounted) setState(() { _searchResults = filtered; _isSearching = false; });
+    } catch (_) {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _inviteUser(String userId) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.currentUser?.accessToken;
+    if (token == null) return;
+
+    setState(() => _invitingIds.add(userId));
+    try {
+      final playlistService = PlaylistService();
+      await playlistService.inviteUserToPlaylist(widget.playlistId, userId, 'editor', token);
+      final freshColabs = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
+      widget.onCollaboratorsChanged(freshColabs);
+      setState(() {
+        _searchResults.removeWhere((u) => u['id'] == userId);
+        _invitingIds.remove(userId);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Collaborator added!'),
+            backgroundColor: AppTheme.accent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _invitingIds.remove(userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Build the collaborator list items (owner + collaborators, excluding self)
+    final List<Map<String, dynamic>> listItems = [];
+    if (widget.playlist != null) {
+      listItems.add({
+        'userId': widget.playlist!.ownerId,
+        'displayName': widget.playlist!.creatorName,
+        'avatarUrl': widget.ownerAvatarUrl ?? '',
+        'permission': 'owner',
+        'isOwner': true,
+      });
+    }
+    for (var c in widget.collaborators) {
+      listItems.add({
+        'userId': c['userId'] as String,
+        'displayName': c['displayName'] as String? ?? 'User',
+        'avatarUrl': c['avatarUrl'] as String? ?? '',
+        'permission': c['permission'] as String? ?? 'editor',
+        'isOwner': false,
+      });
+    }
+
+    final showingSearch = _searchCtrl.text.trim().isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 10,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40, height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Collaborators (${listItems.length})',
+                style: const TextStyle(
+                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Search bar (owner only)
+            if (widget.isOwner)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: _onSearchChanged,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.06),
+                    prefixIcon: const Icon(Icons.person_add_alt_1, color: Colors.white38, size: 20),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white38, size: 18),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() { _searchResults = []; _isSearching = false; });
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    hintText: 'Search & add collaborators...',
+                    hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
+                  ),
+                ),
+              ),
+
+            if (widget.isOwner) const SizedBox(height: 8),
+
+            // Search results area
+            if (showingSearch) ...[
+              if (_isSearching)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF1DB954))),
+                )
+              else if (_searchResults.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text('No users found', style: TextStyle(color: Colors.white38, fontSize: 14)),
+                  ),
+                )
+              else
+                ...List.generate(_searchResults.length, (i) {
+                  final user = _searchResults[i];
+                  final userId = user['id'] as String;
+                  final name = user['displayName'] as String? ?? 'User';
+                  final avatar = user['avatarUrl'] as String? ?? '';
+                  final isInviting = _invitingIds.contains(userId);
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                    leading: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                      backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                      child: avatar.isEmpty ? const Icon(Icons.person, color: Colors.white54, size: 18) : null,
+                    ),
+                    title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                    trailing: SizedBox(
+                      width: 76,
+                      height: 32,
+                      child: ElevatedButton(
+                        onPressed: isInviting ? null : () => _inviteUser(userId),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1DB954),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: isInviting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  );
+                }),
+
+              Divider(color: Colors.white.withValues(alpha: 0.08), indent: 20, endIndent: 20),
+            ],
+
+            // Existing collaborators list
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: listItems.length,
+                itemBuilder: (context, idx) {
+                  final item = listItems[idx];
+                  final userId = item['userId'] as String;
+                  final displayName = item['displayName'] as String;
+                  final avatarUrl = item['avatarUrl'] as String;
+                  final permission = item['permission'] as String;
+                  final isOwnerRole = item['isOwner'] as bool;
+                  final isMe = userId == widget.myId;
+
+                  return ListTile(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UserPublicProfileScreen(
+                            userId: userId,
+                            displayName: displayName,
+                          ),
+                        ),
+                      );
+                    },
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: avatarUrl.isNotEmpty && !avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                      child: avatarUrl.isEmpty || avatarUrl.contains('photo-1535713875002-d1d0cf377fde')
+                          ? const Icon(Icons.person, color: Colors.white70)
+                          : null,
+                    ),
+                    title: Text(
+                      '$displayName ${isMe ? "(You)" : ""}',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      permission.toUpperCase(),
+                      style: TextStyle(
+                        color: isOwnerRole
+                            ? AppTheme.accent
+                            : permission == 'editor'
+                                ? const Color(0xFF1DB954)
+                                : Colors.white60,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: widget.isOwner && !isMe && !isOwnerRole
+                        ? PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert, color: Colors.white70),
+                            color: AppTheme.surface,
+                            onSelected: (value) async {
+                              final auth = Provider.of<AuthProvider>(context, listen: false);
+                              final token = auth.currentUser?.accessToken;
+                              if (token == null) return;
+                              final playlistService = PlaylistService();
+
+                              try {
+                                if (value == 'make_editor') {
+                                  await playlistService.updateCollaboratorRole(widget.playlistId, userId, 'editor', token);
+                                } else if (value == 'make_viewer') {
+                                  await playlistService.updateCollaboratorRole(widget.playlistId, userId, 'viewer', token);
+                                } else if (value == 'remove') {
+                                  await playlistService.removeCollaborator(widget.playlistId, userId, token);
+                                }
+                                final freshColabs = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
+                                widget.onCollaboratorsChanged(freshColabs);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: const Text('Updated!'), backgroundColor: AppTheme.accent),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                                }
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              if (permission != 'editor')
+                                const PopupMenuItem(value: 'make_editor', child: Text('Change to Editor', style: TextStyle(color: Colors.white))),
+                              if (permission != 'viewer')
+                                const PopupMenuItem(value: 'make_viewer', child: Text('Change to Viewer', style: TextStyle(color: Colors.white))),
+                              const PopupMenuDivider(height: 1),
+                              const PopupMenuItem(value: 'remove', child: Text('Remove', style: TextStyle(color: Colors.redAccent))),
+                            ],
+                          )
+                        : isOwnerRole
+                            ? const Icon(Icons.star_rounded, color: Colors.amber, size: 20)
+                            : null,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
