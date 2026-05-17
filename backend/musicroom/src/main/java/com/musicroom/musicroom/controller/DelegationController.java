@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -35,16 +36,32 @@ public class DelegationController {
         return UUID.fromString(jwtTokenProvider.getUserIdFromToken(token));
     }
 
+    /**
+     * Helper method to get client IP address from request
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor == null || xForwardedFor.isEmpty()) {
+            return request.getRemoteAddr();
+        }
+        return xForwardedFor.split(",")[0];
+    }
+
     // POST - Create delegation 
     @PostMapping("/add-delegation")
     public ResponseEntity<DelegationResponseDto> createDelegation(
             @RequestHeader(value = "Authorization", required = true) String authorizationHeader,
-            @RequestBody CreateDelegationRequestDto request
+            @RequestBody CreateDelegationRequestDto request,
+            HttpServletRequest httpRequest
     ) {
         UUID ownerId = extractUserIdFromToken(authorizationHeader);
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        DelegationResponseDto delegation = delegationService.createDelegation(ownerId, request, ipAddress);
+        
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(delegationService.createDelegation(ownerId, request));
+                .body(delegation);
     }
 
     // GET - Get all delegations for a resource
@@ -105,24 +122,34 @@ public class DelegationController {
     public ResponseEntity<DelegationResponseDto> updatePermission(
             @RequestHeader(value = "Authorization", required = true) String authorizationHeader,
             @PathVariable UUID delegationId,
-            @RequestBody UpdatePermissionDto request
+            @RequestBody UpdatePermissionDto request,
+            HttpServletRequest httpRequest
     ) {
         UUID ownerId = extractUserIdFromToken(authorizationHeader);
-        return ResponseEntity.ok(delegationService.updatePermission(
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        DelegationResponseDto result = delegationService.updatePermission(
                 delegationId, 
                 ownerId, 
-                request
-        ));
+                request,
+                ipAddress
+        );
+        
+        return ResponseEntity.ok(result);
     }
 
     // DELETE - Remove delegation
     @DeleteMapping("/{delegationId}")
     public ResponseEntity<Void> removeDelegation(
             @RequestHeader(value = "Authorization", required = true) String authorizationHeader,
-            @PathVariable UUID delegationId
+            @PathVariable UUID delegationId,
+            HttpServletRequest httpRequest
     ) {
         UUID ownerId = extractUserIdFromToken(authorizationHeader);
-        delegationService.removeDelegation(delegationId, ownerId);
+        String ipAddress = getClientIpAddress(httpRequest);
+        
+        delegationService.removeDelegation(delegationId, ownerId, ipAddress);
+        
         return ResponseEntity.noContent().build();
     }
 }

@@ -44,11 +44,13 @@ public class Delegation {
     private PermissionLevel permissionLevel;
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private boolean active = true;
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
     @Column(name = "created_at", updatable = false)
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }

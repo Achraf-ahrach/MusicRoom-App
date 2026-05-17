@@ -9,6 +9,7 @@ import com.musicroom.musicroom.exception.UnauthorizedException;
 import com.musicroom.musicroom.repository.DelegationRepository;
 import com.musicroom.musicroom.repository.UserRepository;
 import com.musicroom.musicroom.service.DelegationService;
+import com.musicroom.musicroom.service.LogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,20 +26,17 @@ public class DelegationServiceImpl implements DelegationService {
 
     private final DelegationRepository delegationRepository;
     private final UserRepository userRepository;
+    private final LogService logService;
 
     @Override
     public DelegationResponseDto createDelegation(
             UUID ownerId,
-            CreateDelegationRequestDto request
+            CreateDelegationRequestDto request,
+            String ipAddress
     ) {
-
-
-     
-
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Owner user not found"));
-
         User delegate = userRepository.findById(request.getDelegateId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Delegate user not found"));
@@ -54,8 +52,20 @@ public class DelegationServiceImpl implements DelegationService {
                 .build();
 
         delegationRepository.save(delegation);
-
-        return mapToDto(delegation);
+        DelegationResponseDto response = mapToDto(delegation);
+        
+        // Log the delegation creation
+        logService.logDelegationCreated(
+            ownerId,
+            request.getDelegateId(),
+            delegate.getEmail(),
+            request.getResourceId(),
+            request.getResourceType().toString(),
+            request.getPermissionLevel().toString(),
+            ipAddress
+        );
+        
+        return response;
     }
 
     @Override
@@ -75,9 +85,9 @@ public class DelegationServiceImpl implements DelegationService {
     public DelegationResponseDto updatePermission(
             UUID delegationId,
             UUID ownerId,
-            UpdatePermissionDto request
+            UpdatePermissionDto request,
+            String ipAddress
     ) {
-
         Delegation delegation = delegationRepository.findById(delegationId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Delegation not found"));
@@ -86,19 +96,35 @@ public class DelegationServiceImpl implements DelegationService {
             throw new UnauthorizedException("Only owner can update permissions");
         }
 
+        String oldPermission = delegation.getPermissionLevel().toString();
         delegation.setPermissionLevel(request.getPermissionLevel());
+        delegation.setActive(request.isActive());
 
         delegationRepository.save(delegation);
-
-        return mapToDto(delegation);
+        DelegationResponseDto response = mapToDto(delegation);
+        
+        // Log the permission update
+        logService.logDelegationPermissionUpdated(
+            ownerId,
+            delegationId,
+            delegation.getDelegate().getId(),
+            delegation.getDelegate().getEmail(),
+            delegation.getResourceId(),
+            delegation.getResourceType().toString(),
+            oldPermission,
+            request.getPermissionLevel().toString(),
+            ipAddress
+        );
+        
+        return response;
     }
 
     @Override
     public void removeDelegation(
             UUID delegationId,
-            UUID ownerId
+            UUID ownerId,
+            String ipAddress
     ) {
-
         Delegation delegation = delegationRepository.findById(delegationId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Delegation not found"));
@@ -106,6 +132,18 @@ public class DelegationServiceImpl implements DelegationService {
         if (!delegation.getOwner().getId().equals(ownerId)) {
             throw new UnauthorizedException("Only owner can remove delegation");
         }
+
+        // Log the delegation removal before deleting
+        logService.logDelegationRemoved(
+            ownerId,
+            delegationId,
+            delegation.getDelegate().getId(),
+            delegation.getDelegate().getEmail(),
+            delegation.getResourceId(),
+            delegation.getResourceType().toString(),
+            delegation.getPermissionLevel().toString(),
+            ipAddress
+        );
 
         delegationRepository.delete(delegation);
     }
