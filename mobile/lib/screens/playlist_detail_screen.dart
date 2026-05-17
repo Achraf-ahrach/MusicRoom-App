@@ -10,6 +10,8 @@ import '../../providers/playlist_provider.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/audio_player_overlay.dart';
 import 'package:musicroom/screens/user_public_profile_screen.dart';
+import 'invite_playlist_friends_screen.dart';
+import '../../services/user_service.dart';
 
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -35,6 +37,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   String? _errorMessage;
   bool _didRetryAfterOpen = false;
   bool _isSaved = false;
+  String? _ownerAvatarUrl;
 
   @override
   void initState() {
@@ -71,11 +74,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           debugPrint('Error fetching status: $e');
         }
 
+        String? ownerAvatarUrl;
+        if (freshPlaylist.ownerId.isNotEmpty) {
+          try {
+            final ownerProfile = await UserService().getUserProfile(freshPlaylist.ownerId, token);
+            ownerAvatarUrl = ownerProfile.avatarUrl;
+          } catch (e) {
+            debugPrint('Error fetching owner profile: $e');
+          }
+        }
+
         if (!mounted) return;
         setState(() {
           _playlist = freshPlaylist;
           _tracks = tracks;
           _isSaved = isSaved;
+          _ownerAvatarUrl = ownerAvatarUrl;
           _isLoading = false;
         });
         return;
@@ -138,9 +152,23 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 final isOwner = _playlist!.ownerId == auth.currentUser?.id;
                 if (!isOwner) return const SizedBox.shrink();
 
-                return PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  color: AppTheme.surface,
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => InvitePlaylistFriendsScreen(playlistId: widget.playlistId),
+                          ),
+                        );
+                      },
+                    ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
+                      color: AppTheme.surface,
                   onSelected: (value) async {
                     if (value == 'toggle_visibility') {
                       final newVisibility = _playlist!.visibility == 'private' ? 'public' : 'private';
@@ -266,9 +294,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                     ),
                   ],
-                );
-              },
-            ),
+                ),
+              ],
+            );
+          },
+        ),
         ],
       ),
       body: Stack(
@@ -387,18 +417,42 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                           ),
                                         )
                                       : null,
-                                  child: Text(
-                                    'By ${_playlist!.creatorName}',
-                                    style: TextStyle(
-                                      color: widget.useBackend
-                                          ? AppTheme.accent
-                                          : Colors.white.withValues(alpha: 0.7),
-                                      fontSize: 16,
-                                      decoration: widget.useBackend
-                                          ? TextDecoration.underline
-                                          : null,
-                                      decorationColor: AppTheme.accent,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (widget.useBackend && _ownerAvatarUrl != null && _ownerAvatarUrl!.isNotEmpty && !_ownerAvatarUrl!.contains('photo-1535713875002-d1d0cf377fde')) ...[
+                                        CircleAvatar(
+                                          radius: 12,
+                                          backgroundImage: NetworkImage(_ownerAvatarUrl!),
+                                          backgroundColor: Colors.transparent,
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ] else if (widget.useBackend) ...[
+                                        CircleAvatar(
+                                          radius: 12,
+                                          backgroundColor: Colors.white.withValues(alpha: 0.1),
+                                          child: const Icon(
+                                            Icons.person,
+                                            size: 14,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      Text(
+                                        'By ${_playlist!.creatorName}',
+                                        style: TextStyle(
+                                          color: widget.useBackend
+                                              ? AppTheme.accent
+                                              : Colors.white.withValues(alpha: 0.7),
+                                          fontSize: 16,
+                                          decoration: widget.useBackend
+                                              ? TextDecoration.underline
+                                              : null,
+                                          decorationColor: AppTheme.accent,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 if (widget.useBackend) ...[

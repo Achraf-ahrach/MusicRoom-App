@@ -226,11 +226,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           'PLAYLISTS',
                         ),
                         _buildStatColumn(
-                          '${profileProvider.friendsCount}',
+                          '${profileProvider.followersCount}',
                           'FOLLOWERS',
                         ),
                         _buildStatColumn(
-                          '${profileProvider.friendsCount}',
+                          '${profileProvider.followingCount}',
                           'FOLLOWING',
                         ),
                       ],

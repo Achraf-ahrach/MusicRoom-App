@@ -155,6 +155,22 @@ class PlaylistService {
     }
   }
 
+  // Invite user to playlist
+  Future<void> inviteUserToPlaylist(String playlistId, String userId, String permission, String token) async {
+    final response = await http.post(
+      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/invite'),
+      headers: _headers(token),
+      body: json.encode({
+        'userId': userId,
+        'permission': permission,
+      }),
+    );
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Failed to invite user (${response.statusCode})');
+    }
+  }
+
   // Add track to playlist using WebSockets
   Future<void> addTrackToPlaylist(String playlistId, Track track, String token, int version) async {
     final completer = Completer<void>();

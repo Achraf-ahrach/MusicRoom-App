@@ -45,6 +45,26 @@ class UserService {
     }
   }
 
+  /// Fetches the profile of any user by ID
+  Future<UserProfileModel> getUserProfile(String userId, String token) async {
+    final response = await http.get(
+      Uri.parse('$_effectiveBaseUrl$_usersPath/$userId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'User-Agent': 'MusicRoomApp/1.0',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return UserProfileModel.fromJson(decoded);
+    } else {
+      throw Exception('Failed to load user profile: ${response.statusCode}');
+    }
+  }
+
   /// Fetches all events
   Future<List<Map<String, dynamic>>> getAllEvents(String token) async {
     try {
@@ -185,5 +205,24 @@ class UserService {
       }
     } catch (_) {}
     return []; // fallback
+  }
+
+  /// Searches users by name
+  Future<List<dynamic>> searchUsers(String query, String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_effectiveBaseUrl$_friendshipsPath/search?name=${Uri.encodeComponent(query)}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(utf8.decode(response.bodyBytes));
+      }
+    } catch (_) {}
+    return [];
   }
 }

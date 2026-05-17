@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile_model.dart';
 import '../services/user_service.dart';
+import '../services/follow_service.dart';
 import 'auth_provider.dart';
 
 class UserProfileProvider with ChangeNotifier {
@@ -14,6 +15,8 @@ class UserProfileProvider with ChangeNotifier {
   UserProfileModel? _profile;
   List<Map<String, dynamic>> _userEvents = [];
   int _friendsCount = 0;
+  int _followersCount = 0;
+  int _followingCount = 0;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -21,6 +24,8 @@ class UserProfileProvider with ChangeNotifier {
   List<Map<String, dynamic>> get userEvents => _userEvents;
   int get playlistsCount => _userEvents.length;
   int get friendsCount => _friendsCount;
+  int get followersCount => _followersCount;
+  int get followingCount => _followingCount;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -56,9 +61,13 @@ class UserProfileProvider with ChangeNotifier {
           final results = await Future.wait([
             _userService.getUserEvents(activeToken, _profile!.id),
             _userService.getUserFriendsCount(activeToken),
+            FollowService().getFollowers(_profile!.id, activeToken),
+            FollowService().getFollowing(_profile!.id, activeToken),
           ]);
           _userEvents = results[0] as List<Map<String, dynamic>>;
           _friendsCount = results[1] as int;
+          _followersCount = (results[2] as List).length;
+          _followingCount = (results[3] as List).length;
         }
       });
     } catch (e) {
