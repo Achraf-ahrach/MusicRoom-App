@@ -8,6 +8,8 @@ import '../services/follow_service.dart';
 import '../services/playlist_service.dart';
 import '../services/user_service.dart';
 import 'playlist_detail_screen.dart';
+import 'profile/followers_following_screen.dart';
+import 'profile/all_playlists_screen.dart';
 
 class UserPublicProfileScreen extends StatefulWidget {
   final String userId;
@@ -178,11 +180,60 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _statItem('$_followersCount', 'Followers'),
+                        _statItem(
+                          '$_followersCount',
+                          'Followers',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FollowersFollowingScreen(
+                                  userId: widget.userId,
+                                  displayName: widget.displayName,
+                                  initialTab: 0,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         Container(width: 1, height: 32, color: Colors.white24),
-                        _statItem('$_followingCount', 'Following'),
+                        _statItem(
+                          '$_followingCount',
+                          'Following',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FollowersFollowingScreen(
+                                  userId: widget.userId,
+                                  displayName: widget.displayName,
+                                  initialTab: 1,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         Container(width: 1, height: 32, color: Colors.white24),
-                        _statItem('${_playlists.length}', 'Playlists'),
+                        _statItem(
+                          '${_playlists.length}',
+                          'Playlists',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AllPlaylistsScreen(
+                                  playlists: _playlists.map((p) => {
+                                    'name': p.title,
+                                    'id': p.id,
+                                    'creatorName': p.creatorName,
+                                    'imageUrl': p.imageUrl,
+                                    'playlist': p,
+                                  }).toList(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -269,23 +320,27 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
     );
   }
 
-  Widget _statItem(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
+  Widget _statItem(String value, String label, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 

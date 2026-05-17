@@ -7,6 +7,7 @@ import 'edit_profile_screen.dart';
 import 'all_playlists_screen.dart';
 import 'settings_screen.dart';
 import '../playlist_detail_screen.dart';
+import 'followers_following_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -224,14 +225,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildStatColumn(
                           '${playlistProvider.playlists.length}',
                           'PLAYLISTS',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AllPlaylistsScreen(
+                                  playlists: playlistProvider.playlists.map((p) => {
+                                    'name': p.title,
+                                    'id': p.id,
+                                    'creatorName': p.creatorName,
+                                    'imageUrl': p.imageUrl,
+                                    'playlist': p,
+                                  }).toList(),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         _buildStatColumn(
                           '${profileProvider.followersCount}',
                           'FOLLOWERS',
+                          onTap: () {
+                            if (profile != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FollowersFollowingScreen(
+                                    userId: profile.id,
+                                    displayName: profile.displayName,
+                                    initialTab: 0,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                         _buildStatColumn(
                           '${profileProvider.followingCount}',
                           'FOLLOWING',
+                          onTap: () {
+                            if (profile != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FollowersFollowingScreen(
+                                    userId: profile.id,
+                                    displayName: profile.displayName,
+                                    initialTab: 1,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -353,27 +398,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatColumn(String count, String label) {
-    return Column(
-      children: [
-        Text(
-          count,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+  Widget _buildStatColumn(String count, String label, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        children: [
+          Text(
+            count,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 12,
-            letterSpacing: 1.0,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+              letterSpacing: 1.0,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
