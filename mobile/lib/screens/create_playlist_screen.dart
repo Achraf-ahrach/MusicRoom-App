@@ -50,36 +50,7 @@ class _CreatePlaylistScreenState extends State<CreatePlaylistScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Playlist Header ──────────────────────────────────────────────
-            Center(
-              child: Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_a_photo_rounded, color: Colors.white54, size: 40),
-                    SizedBox(height: 12),
-                    Text(
-                      'Add Cover Image',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
+
 
             // ── Playlist Name ────────────────────────────────────────────────
             const Text(
