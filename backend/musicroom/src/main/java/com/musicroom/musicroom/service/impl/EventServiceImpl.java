@@ -386,6 +386,14 @@ public class EventServiceImpl implements EventService {
         java.util.List<EventInvite> invites = inviteRepo.findByEventId(eventId);
         java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
 
+        // Add owner first
+        java.util.Map<String, Object> ownerMap = new java.util.HashMap<>();
+        ownerMap.put("userId", event.getOwner().getId().toString());
+        ownerMap.put("displayName", event.getOwner().getDisplayName());
+        ownerMap.put("avatarUrl", event.getOwner().getAvatarUrl() != null ? event.getOwner().getAvatarUrl() : "");
+        ownerMap.put("permission", "owner");
+        result.add(ownerMap);
+
         for (EventInvite invite : invites) {
             java.util.Map<String, Object> cMap = new java.util.HashMap<>();
             cMap.put("userId", invite.getUser().getId().toString());

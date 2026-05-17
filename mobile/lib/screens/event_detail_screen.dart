@@ -201,6 +201,98 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     super.dispose();
   }
 
+  void _showListenersSheet() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.currentUser?.accessToken;
+    if (token == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[600],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Listeners in the room',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _eventService.getEventCollaborators(widget.eventId, token),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Colors.green));
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(child: Text('Error loading listeners', style: TextStyle(color: Colors.red)));
+                    }
+                    final listeners = snapshot.data ?? [];
+                    if (listeners.isEmpty) {
+                      return const Center(child: Text('No listeners yet.', style: TextStyle(color: Colors.grey)));
+                    }
+
+                    return ListView.builder(
+                      itemCount: listeners.length,
+                      itemBuilder: (context, index) {
+                        final listener = listeners[index];
+                        final name = listener['displayName'] ?? 'Unknown';
+                        final role = listener['permission'] ?? 'viewer';
+                        final avatarUrl = listener['avatarUrl'] ?? '';
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.grey[800],
+                            backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                            child: avatarUrl.isEmpty ? const Icon(Icons.person, color: Colors.grey) : null,
+                          ),
+                          title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          subtitle: Text(
+                            role.toUpperCase(), 
+                            style: TextStyle(
+                              color: role == 'owner' ? Colors.greenAccent : (role == 'editor' ? Colors.blueAccent : Colors.grey[400]), 
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showAddTrackSheet() {
     if (_userRole == 'viewer') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -458,19 +550,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.people_outline, color: Colors.grey[400], size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${_eventDetails?['participantCount'] ?? 1} listeners in the room',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                        GestureDetector(
+                          onTap: _showListenersSheet,
+                          child: Row(
+                            children: [
+                              Icon(Icons.people_outline, color: Colors.grey[400], size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${_eventDetails?['participantCount'] ?? 1} listeners in the room',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Icon(Icons.chevron_right, color: Colors.grey[400], size: 16),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
