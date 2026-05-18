@@ -64,7 +64,7 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> playTrack(Track track, {List<Track>? playlist, int index = 0, bool isLiveEvent = false}) async {
+  Future<void> playTrack(Track track, {List<Track>? playlist, int index = 0, bool isLiveEvent = false, int seekToMs = 0}) async {
     _isLiveEvent = isLiveEvent;
     if (playlist != null) {
       _playlist = playlist;
@@ -74,15 +74,18 @@ class AudioProvider extends ChangeNotifier {
       _currentIndex = 0;
     }
 
-    debugPrint("--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}, isLiveEvent: $isLiveEvent");
+    debugPrint("--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}, isLiveEvent: $isLiveEvent, seekToMs: $seekToMs");
 
     if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
       try {
         await _audioPlayer.setUrl(track.audioUrl!);
         await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
+        if (seekToMs > 0) {
+          await _audioPlayer.seek(Duration(milliseconds: seekToMs));
+        }
         _audioPlayer.play();
         if (!_isLiveEvent) {
-          onPlaybackStateChanged?.call('PLAY', 0);
+          onPlaybackStateChanged?.call('PLAY', seekToMs);
         }
       } catch (e) {
         debugPrint("Error playing audio: $e");
@@ -117,11 +120,12 @@ class AudioProvider extends ChangeNotifier {
       _playlist = [];
       _currentIndex = -1;
       _isPlaying = false;
+      _isLiveEvent = false;
       _position = Duration.zero;
       _duration = Duration.zero;
       notifyListeners();
     } catch (e) {
-      debugPrint("Error stopping audio: \$e");
+      debugPrint("Error stopping audio: $e");
     }
   }
 

@@ -33,4 +33,9 @@ public interface PlaybackService {
      * Stop tracking playback for an event (when event is deleted).
      */
     void stopEvent(UUID eventId);
+
+    /**
+     * Get rich playback status including isPlaying and positionMs.
+     */
+    java.util.Map<String, Object> getPlaybackStatus(UUID eventId);
 }

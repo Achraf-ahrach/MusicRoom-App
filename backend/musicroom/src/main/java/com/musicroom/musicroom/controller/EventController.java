@@ -183,7 +183,6 @@ public class EventController {
     @GetMapping("/{id}/playback-status")
     public ResponseEntity<java.util.Map<String, Object>> getPlaybackStatus(
             @PathVariable UUID id) {
-        boolean isPlaying = playbackService.isEventPlaying(id);
-        return ResponseEntity.ok(java.util.Map.of("isPlaying", isPlaying));
+        return ResponseEntity.ok(playbackService.getPlaybackStatus(id));
     }
 }

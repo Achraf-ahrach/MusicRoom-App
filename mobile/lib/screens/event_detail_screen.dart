@@ -35,6 +35,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _isLoading = true;
   bool _isWsConnected = false;
   bool _isEventPlaying = false;
+  late AudioProvider _audioProvider;
 
   Map<String, dynamic>? _eventDetails;
   String _userRole = 'none'; // 'editor' | 'viewer' | 'none'
@@ -50,6 +51,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       return "${duration.inHours}:$twoDigitMinutes:$twoDigitSeconds";
     }
     return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _audioProvider = Provider.of<AudioProvider>(context, listen: false);
   }
 
   @override
@@ -91,9 +98,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final playlist = await _eventService.getEventPlaylist(widget.eventId, token);
 
       bool isPlaying = false;
+      int seekToMs = 0;
       try {
         final playbackStatus = await _eventService.getPlaybackStatus(widget.eventId, token);
         isPlaying = playbackStatus['isPlaying'] ?? false;
+        seekToMs = playbackStatus['positionMs'] as int? ?? 0;
       } catch (e) {
         debugPrint('Error fetching playback status: $e');
       }
@@ -109,7 +118,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         final firstTrack = Track.fromPlaylistTrackJson(playlist[0]);
         final audioProvider = Provider.of<AudioProvider>(context, listen: false);
         if (audioProvider.currentTrack?.id != firstTrack.id || !audioProvider.isPlaying) {
-          audioProvider.playTrack(firstTrack, isLiveEvent: true);
+          audioProvider.playTrack(firstTrack, isLiveEvent: true, seekToMs: seekToMs);
         }
       }
 
@@ -384,9 +393,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   void dispose() {
     _stompClient?.deactivate();
     try {
-      Provider.of<AudioProvider>(context, listen: false).stop();
+      _audioProvider.stop();
     } catch (e) {
-      debugPrint('Error stopping audio on dispose: \$e');
+      debugPrint('Error stopping audio on dispose: $e');
     }
     super.dispose();
   }
@@ -602,7 +611,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   pinned: true,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      _audioProvider.stop();
+                      Navigator.pop(context);
+                    },
                   ),
                   actions: [
                     if (_userRole == 'owner')

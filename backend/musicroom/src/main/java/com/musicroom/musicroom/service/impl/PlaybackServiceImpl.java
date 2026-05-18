@@ -50,6 +50,9 @@ public class PlaybackServiceImpl implements PlaybackService {
     /** Set of events that have been started */
     private final Set<UUID> activeEvents = ConcurrentHashMap.newKeySet();
 
+    /** eventId -> timestamp in millis when the current track started playing */
+    private final Map<UUID, Long> trackStartTimes = new ConcurrentHashMap<>();
+
     @PreDestroy
     public void shutdown() {
         scheduler.shutdownNow();
@@ -84,6 +87,34 @@ public class PlaybackServiceImpl implements PlaybackService {
     }
 
     @Override
+    public Map<String, Object> getPlaybackStatus(UUID eventId) {
+        boolean isPlaying = activeEvents.contains(eventId);
+        if (!isPlaying) {
+            return Map.of("isPlaying", false);
+        }
+
+        Long startTime = trackStartTimes.get(eventId);
+        long positionMs = startTime != null ? (System.currentTimeMillis() - startTime) : 0L;
+
+        // Clamp positionMs to track's duration if available
+        UUID entryId = currentlyPlaying.get(eventId);
+        if (entryId != null) {
+            Optional<EventPlaylistEntry> entryOpt = playlistRepo.findById(entryId);
+            if (entryOpt.isPresent()) {
+                Track track = entryOpt.get().getTrack();
+                if (track != null && track.getDurationMs() != null) {
+                    positionMs = Math.min(positionMs, track.getDurationMs().longValue());
+                }
+            }
+        }
+
+        Map<String, Object> status = new HashMap<>();
+        status.put("isPlaying", true);
+        status.put("positionMs", positionMs);
+        return status;
+    }
+
+    @Override
     public void onPlaylistChanged(UUID eventId) {
         if (!activeEvents.contains(eventId)) {
             return;
@@ -102,6 +133,7 @@ public class PlaybackServiceImpl implements PlaybackService {
     public void stopEvent(UUID eventId) {
         activeEvents.remove(eventId);
         currentlyPlaying.remove(eventId);
+        trackStartTimes.remove(eventId);
         ScheduledFuture<?> future = scheduledAdvances.remove(eventId);
         if (future != null) {
             future.cancel(false);
@@ -132,6 +164,7 @@ public class PlaybackServiceImpl implements PlaybackService {
             if (entries.isEmpty()) {
                 log.info("Event {} queue is empty, waiting for new tracks", eventId);
                 currentlyPlaying.remove(eventId);
+                trackStartTimes.remove(eventId);
 
                 // Broadcast QUEUE_EMPTY so clients know nothing is playing
                 PlaybackMessage emptyMsg = new PlaybackMessage();
@@ -143,6 +176,7 @@ public class PlaybackServiceImpl implements PlaybackService {
             EventPlaylistEntry firstEntry = entries.get(0);
             Track track = firstEntry.getTrack();
             currentlyPlaying.put(eventId, firstEntry.getId());
+            trackStartTimes.put(eventId, System.currentTimeMillis());
 
             // Build the audioUrl from Audius
             String audioUrl = "https://discoveryprovider.audius.co/v1/tracks/"
