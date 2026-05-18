@@ -22,6 +22,7 @@ import java.util.UUID;
 public class EventController {
 
     private final EventService eventService;
+    private final WebSocketEventListener webSocketEventListener;
 
     @Operation(summary = "Créer un événement")
     @PostMapping
@@ -156,5 +157,12 @@ public class EventController {
         UUID userId = UUID.fromString(userDetails.getUsername());
         eventService.removeCollaborator(userId, id, collaboratorId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Obtenir les auditeurs actifs de l'événement")
+    @GetMapping("/{id}/listeners")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getActiveListeners(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(webSocketEventListener.getActiveListeners(id));
     }
 }

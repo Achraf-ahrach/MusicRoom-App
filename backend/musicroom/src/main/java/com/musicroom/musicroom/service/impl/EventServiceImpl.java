@@ -7,7 +7,10 @@ import com.musicroom.musicroom.exception.ResourceNotFoundException;
 import com.musicroom.musicroom.exception.UnauthorizedException;
 import com.musicroom.musicroom.repository.*;
 import com.musicroom.musicroom.service.EventService;
+import com.musicroom.musicroom.dto.websocket.VoteMessageType;
+import com.musicroom.musicroom.dto.websocket.VoteUpdateMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +32,7 @@ public class EventServiceImpl implements EventService {
     private final EventPlaylistRepository playlistRepo;
     private final VoteRepository voteRepo;
     private final TrackRepository trackRepo;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -88,6 +92,14 @@ public class EventServiceImpl implements EventService {
         if (request.getEndsAt() != null) event.setEndsAt(request.getEndsAt());
 
         eventRepo.save(event);
+
+        // Broadcast event updates (name, description, visibility)
+        broadcastEventUpdate(eventId, "EVENT_UPDATED", java.util.Map.of(
+            "name", event.getName() != null ? event.getName() : "",
+            "description", event.getDescription() != null ? event.getDescription() : "",
+            "visibility", event.getVisibility() != null ? event.getVisibility() : "public"
+        ));
+
         return toDto(event);
     }
 
@@ -129,6 +141,10 @@ public class EventServiceImpl implements EventService {
                 .build();
 
         inviteRepo.save(invite);
+
+        // Broadcast role update
+        String frontEndRole = "admin".equalsIgnoreCase(invite.getRole()) ? "editor" : "viewer";
+        broadcastEventUpdate(eventId, "ROLE_CHANGE", java.util.Map.of("userId", request.getUserId().toString(), "role", frontEndRole));
     }
 
     @Override
@@ -199,6 +215,7 @@ public class EventServiceImpl implements EventService {
                 .build();
 
         playlistRepo.save(entry);
+        broadcastPlaylistUpdate(eventId, userId, entry, VoteMessageType.PLAYLIST_UPDATED);
         return toPlaylistEntryDto(entry);
     }
 
@@ -272,6 +289,7 @@ public class EventServiceImpl implements EventService {
         }
 
         playlistRepo.save(entry);
+        broadcastPlaylistUpdate(eventId, userId, entry, VoteMessageType.VOTE_CHANGED);
         return toPlaylistEntryDto(entry);
     }
 
@@ -369,6 +387,28 @@ public class EventServiceImpl implements EventService {
                 .build();
     }
 
+    private void broadcastPlaylistUpdate(UUID eventId, UUID userId, EventPlaylistEntry entry, VoteMessageType type) {
+        List<PlaylistEntryDto> playlist = playlistRepo
+                .findByEventIdOrderByVoteCountDesc(eventId)
+                .stream()
+                .map(this::toPlaylistEntryDto)
+                .collect(Collectors.toList());
+
+        VoteUpdateMessage updateMessage = VoteUpdateMessage.builder()
+                .type(type)
+                .eventId(eventId)
+                .entryId(entry.getId())
+                .userId(userId)
+                .newVoteCount(entry.getVoteCount())
+                .playlist(playlist)
+                .build();
+
+        messagingTemplate.convertAndSend(
+                "/topic/event/" + eventId + "/playlist",
+                updateMessage
+        );
+    }
+
     @Override
     @Transactional(readOnly = true)
     public java.util.List<java.util.Map<String, Object>> getCollaborators(UUID userId, UUID eventId) {
@@ -425,6 +465,10 @@ public class EventServiceImpl implements EventService {
             invite.setRole("voter");
         }
         inviteRepo.save(invite);
+
+        // Broadcast role update
+        String frontEndRole = "admin".equalsIgnoreCase(invite.getRole()) ? "editor" : "viewer";
+        broadcastEventUpdate(eventId, "ROLE_CHANGE", java.util.Map.of("userId", collaboratorId.toString(), "role", frontEndRole));
     }
 
     @Override
@@ -441,5 +485,17 @@ public class EventServiceImpl implements EventService {
                 .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
 
         inviteRepo.delete(invite);
+
+        // Broadcast role update (role is 'none' when removed)
+        broadcastEventUpdate(eventId, "ROLE_CHANGE", java.util.Map.of("userId", collaboratorId.toString(), "role", "none"));
+    }
+
+    private void broadcastEventUpdate(UUID eventId, String type, java.util.Map<String, Object> extraData) {
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("type", type);
+        if (extraData != null) {
+            payload.putAll(extraData);
+        }
+        messagingTemplate.convertAndSend("/topic/event/" + eventId + "/updates", payload);
     }
 }

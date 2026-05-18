@@ -38,6 +38,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
 
   // Collaborators
   List<Map<String, dynamic>> _collaborators = [];
+  List<Map<String, dynamic>> _listeners = [];
   bool _loadingCollaborators = true;
 
   // Search / Invite
@@ -73,17 +74,20 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
   String? get _currentUserId =>
       Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
 
-  // ── Load collaborators ─────────────────────────────────────────────────────
+  // ── Load collaborators & listeners ──────────────────────────────────────────
   Future<void> _loadCollaborators() async {
     final token = _token;
     if (token == null) return;
 
     try {
-      final collabs =
-          await _eventService.getEventCollaborators(widget.eventId, token);
+      final results = await Future.wait([
+        _eventService.getEventCollaborators(widget.eventId, token),
+        _eventService.getEventListeners(widget.eventId, token),
+      ]);
       if (mounted) {
         setState(() {
-          _collaborators = collabs;
+          _collaborators = results[0];
+          _listeners = results[1];
           _loadingCollaborators = false;
         });
       }
@@ -492,7 +496,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
       );
     }
 
-    if (_collaborators.isEmpty) {
+    if (_collaborators.isEmpty && _listeners.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -516,28 +520,217 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
       );
     }
 
+    final hasListeners = _listeners.isNotEmpty;
+    final totalItems = 1 + _collaborators.length + (hasListeners ? (1 + _listeners.length) : 0);
+
     return RefreshIndicator(
       color: const Color(0xFF1DB954),
       onRefresh: _loadCollaborators,
-      child: ListView.separated(
+      child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        itemCount: _collaborators.length,
-        separatorBuilder: (_, __) => Divider(
-          color: Colors.white.withOpacity(0.05),
-          height: 1,
-          indent: 72,
-        ),
+        itemCount: totalItems,
         itemBuilder: (context, index) {
-          final c = _collaborators[index];
-          final userId = c['userId'] as String;
-          final displayName = c['displayName'] as String? ?? 'User';
-          final avatarUrl = c['avatarUrl'] as String? ?? '';
-          final permission = c['permission'] as String? ?? 'viewer';
+          // 1. Collaborators Header
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.people_outline, color: Color(0xFF1DB954), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Collaborators (${_collaborators.length})',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // 2. Collaborators Items
+          final collabIndex = index - 1;
+          if (collabIndex < _collaborators.length) {
+            final c = _collaborators[collabIndex];
+            final userId = c['userId'] as String;
+            final displayName = c['displayName'] as String? ?? 'User';
+            final avatarUrl = c['avatarUrl'] as String? ?? '';
+            final permission = c['permission'] as String? ?? 'viewer';
+            final isMe = userId == _currentUserId;
+
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserPublicProfileScreen(
+                      userId: userId,
+                      displayName: displayName,
+                    ),
+                  ),
+                );
+              },
+              leading: CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.white.withOpacity(0.1),
+                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl.isEmpty
+                    ? const Icon(Icons.person, color: Colors.white54, size: 22)
+                    : null,
+              ),
+              title: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayName,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('You',
+                          style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ],
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: permission == 'owner'
+                            ? Colors.orangeAccent.withOpacity(0.15)
+                            : (permission == 'editor'
+                                ? const Color(0xFF1DB954).withOpacity(0.15)
+                                : Colors.blueGrey.withOpacity(0.15)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        permission == 'owner'
+                            ? '👑 Owner'
+                            : (permission == 'editor' ? '✏️ Editor' : '👁 Viewer'),
+                        style: TextStyle(
+                          color: permission == 'owner'
+                              ? Colors.orangeAccent
+                              : (permission == 'editor'
+                                  ? const Color(0xFF1DB954)
+                                  : Colors.blueGrey[200]),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              trailing: isMe
+                  ? null
+                  : PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: Colors.white38),
+                      color: AppTheme.surface,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        if (value == 'make_editor') {
+                          _updateRole(userId, 'editor');
+                        } else if (value == 'make_viewer') {
+                          _updateRole(userId, 'viewer');
+                        } else if (value == 'remove') {
+                          _removeCollaborator(userId, displayName);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        if (permission != 'editor')
+                          const PopupMenuItem(
+                            value: 'make_editor',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, color: Color(0xFF1DB954), size: 18),
+                                SizedBox(width: 10),
+                                Text('Make Editor', style: TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        if (permission != 'viewer')
+                          const PopupMenuItem(
+                            value: 'make_viewer',
+                            child: Row(
+                              children: [
+                                Icon(Icons.visibility, color: Colors.blueGrey, size: 18),
+                                SizedBox(width: 10),
+                                Text('Make Viewer', style: TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        const PopupMenuDivider(height: 1),
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Row(
+                            children: [
+                              Icon(Icons.person_remove, color: Colors.redAccent, size: 18),
+                              SizedBox(width: 10),
+                              Text('Remove', style: TextStyle(color: Colors.redAccent)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            );
+          }
+
+          // 3. Active Listeners Header
+          final relativeIndex = collabIndex - _collaborators.length;
+          if (relativeIndex == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.headset_rounded, color: Colors.orangeAccent, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Active Listeners (${_listeners.length})',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // 4. Active Listeners Items
+          final listenerIndex = relativeIndex - 1;
+          final listener = _listeners[listenerIndex];
+          final userId = listener['userId'] as String;
+          final displayName = listener['displayName'] as String? ?? 'User';
+          final avatarUrl = listener['avatarUrl'] as String? ?? '';
           final isMe = userId == _currentUserId;
 
           return ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             onTap: () {
               Navigator.push(
                 context,
@@ -552,9 +745,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
             leading: CircleAvatar(
               radius: 22,
               backgroundColor: Colors.white.withOpacity(0.1),
-              backgroundImage: avatarUrl.isNotEmpty
-                  ? NetworkImage(avatarUrl)
-                  : null,
+              backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
               child: avatarUrl.isEmpty
                   ? const Icon(Icons.person, color: Colors.white54, size: 22)
                   : null,
@@ -574,8 +765,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                 if (isMe) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(4),
@@ -594,84 +784,30 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
               child: Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: permission == 'editor'
-                          ? const Color(0xFF1DB954).withOpacity(0.15)
-                          : Colors.blueGrey.withOpacity(0.15),
+                      color: const Color(0xFF1DB954).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
-                      permission == 'editor' ? '✏️ Editor' : '👁 Viewer',
-                      style: TextStyle(
-                        color: permission == 'editor'
-                            ? const Color(0xFF1DB954)
-                            : Colors.blueGrey[200],
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, color: Color(0xFF1DB954), size: 12),
+                        SizedBox(width: 3),
+                        Text(
+                          'Listening Now',
+                          style: TextStyle(
+                            color: Color(0xFF1DB954),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            trailing: isMe
-                ? null
-                : PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.white38),
-                    color: AppTheme.surface,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    onSelected: (value) {
-                      if (value == 'make_editor') {
-                        _updateRole(userId, 'editor');
-                      } else if (value == 'make_viewer') {
-                        _updateRole(userId, 'viewer');
-                      } else if (value == 'remove') {
-                        _removeCollaborator(userId, displayName);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      if (permission != 'editor')
-                        const PopupMenuItem(
-                          value: 'make_editor',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: Color(0xFF1DB954), size: 18),
-                              SizedBox(width: 10),
-                              Text('Make Editor',
-                                  style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
-                        ),
-                      if (permission != 'viewer')
-                        const PopupMenuItem(
-                          value: 'make_viewer',
-                          child: Row(
-                            children: [
-                              Icon(Icons.visibility, color: Colors.blueGrey, size: 18),
-                              SizedBox(width: 10),
-                              Text('Make Viewer',
-                                  style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
-                        ),
-                      const PopupMenuDivider(height: 1),
-                      const PopupMenuItem(
-                        value: 'remove',
-                        child: Row(
-                          children: [
-                            Icon(Icons.person_remove, color: Colors.redAccent,
-                                size: 18),
-                            SizedBox(width: 10),
-                            Text('Remove',
-                                style: TextStyle(color: Colors.redAccent)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
           );
         },
       ),

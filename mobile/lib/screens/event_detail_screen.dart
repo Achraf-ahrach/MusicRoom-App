@@ -46,10 +46,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     _loadEventData();
   }
 
-  Future<void> _loadEventData() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _loadEventData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -83,7 +85,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       });
 
       // 3. Connect to STOMP WebSocket
-      _connectWebSocket(token);
+      if (_stompClient == null || !_isWsConnected) {
+        _connectWebSocket(token);
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -91,6 +95,40 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load event: $e')),
       );
+    }
+  }
+
+  Future<void> _refreshRoleAndAccess() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.currentUser?.accessToken;
+      if (token == null) return;
+
+      final roleData = await _eventService.getEventUserRole(widget.eventId, token);
+      final newRole = roleData['role'] ?? 'none';
+      final newAllowed = roleData['allowed'] ?? false;
+      final newVisibility = roleData['visibility'] ?? 'public';
+
+      if (!mounted) return;
+
+      if (!newAllowed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You no longer have access to this event.')),
+        );
+        Navigator.pop(context);
+        return;
+      }
+
+      final details = await _eventService.getEventById(widget.eventId, token);
+
+      setState(() {
+        _userRole = newRole;
+        _allowed = newAllowed;
+        _visibility = newVisibility;
+        _eventDetails = details;
+      });
+    } catch (e) {
+      debugPrint('Error refreshing role and access: $e');
     }
   }
 
@@ -121,6 +159,46 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   });
                 } catch (e) {
                   debugPrint('Error parsing STOMP frame body: $e');
+                }
+              }
+            },
+          );
+
+          // Subscribe to listeners count topic
+          _stompClient?.subscribe(
+            destination: '/topic/event/${widget.eventId}/listeners',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                try {
+                  final data = jsonDecode(frame.body!);
+                  final int count = data['count'] ?? 1;
+                  setState(() {
+                    if (_eventDetails != null) {
+                      _eventDetails!['participantCount'] = count;
+                    }
+                  });
+                } catch (e) {
+                  debugPrint('Error parsing listeners count: $e');
+                }
+              }
+            },
+          );
+
+          // Subscribe to general updates topic (visibility, role changes)
+          _stompClient?.subscribe(
+            destination: '/topic/event/${widget.eventId}/updates',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                try {
+                  final data = jsonDecode(frame.body!);
+                  final String type = data['type'] ?? '';
+                  if (type == 'VISIBILITY_CHANGE' ||
+                      type == 'ROLE_CHANGE' ||
+                      type == 'EVENT_UPDATED') {
+                    _refreshRoleAndAccess();
+                  }
+                } catch (e) {
+                  debugPrint('Error parsing event updates: $e');
                 }
               }
             },
@@ -415,7 +493,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   actions: [
-                    if (_userRole == 'editor' || _userRole == 'owner')
+                    if (_userRole == 'owner')
                       IconButton(
                         icon: const Icon(Icons.settings, color: Colors.white),
                         onPressed: () {
@@ -430,8 +508,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ),
                             ),
                           ).then((_) {
-                            // Refresh event data when returning from settings
-                            _loadEventData();
+                            // Refresh event data silently when returning from settings
+                            _loadEventData(silent: true);
                           });
                         },
                       ),

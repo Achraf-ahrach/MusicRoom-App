@@ -204,6 +204,25 @@ class EventService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getEventListeners(String eventId, String token) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/listeners');
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+      return list.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to fetch event listeners');
+    }
+  }
+
   Future<void> updateCollaboratorRole(
     String eventId,
     String collaboratorId,
