@@ -12,12 +12,21 @@ class AudioProvider extends ChangeNotifier {
   Duration _duration = Duration.zero;
 
   bool _isPlayerMaximized = false;
+  bool _isMuted = false;
+  bool _isLiveEvent = false;
+
+  VoidCallback? onTrackCompleted;
+  Function(String command, int positionMs)? onPlaybackStateChanged;
 
   AudioProvider() {
     _audioPlayer.playerStateStream.listen((state) {
       _isPlaying = state.playing;
       if (state.processingState == ProcessingState.completed) {
-        nextTrack();
+        if (onTrackCompleted != null) {
+          onTrackCompleted!();
+        } else if (!_isLiveEvent) {
+          nextTrack();
+        }
       }
       notifyListeners();
     });
@@ -42,6 +51,8 @@ class AudioProvider extends ChangeNotifier {
   Duration get duration => _duration;
   bool get isPlayerMaximized => _isPlayerMaximized;
   bool get hasTrack => currentTrack != null;
+  bool get isMuted => _isMuted;
+  bool get isLiveEvent => _isLiveEvent;
 
   void maximizePlayer() {
     _isPlayerMaximized = true;
@@ -53,7 +64,8 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> playTrack(Track track, {List<Track>? playlist, int index = 0}) async {
+  Future<void> playTrack(Track track, {List<Track>? playlist, int index = 0, bool isLiveEvent = false}) async {
+    _isLiveEvent = isLiveEvent;
     if (playlist != null) {
       _playlist = playlist;
       _currentIndex = index;
@@ -62,14 +74,18 @@ class AudioProvider extends ChangeNotifier {
       _currentIndex = 0;
     }
 
-    debugPrint("--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}");
+    debugPrint("--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}, isLiveEvent: $isLiveEvent");
 
     if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
       try {
         await _audioPlayer.setUrl(track.audioUrl!);
+        await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
         _audioPlayer.play();
+        if (!_isLiveEvent) {
+          onPlaybackStateChanged?.call('PLAY', 0);
+        }
       } catch (e) {
-        debugPrint("Error playing audio: \$e");
+        debugPrint("Error playing audio: $e");
       }
     } else {
       debugPrint("--- AudioProvider.playTrack: ERROR: track.audioUrl is empty or null!");
@@ -78,11 +94,21 @@ class AudioProvider extends ChangeNotifier {
   }
 
   Future<void> togglePlayPause() async {
+    if (_isLiveEvent) return; // Block playback state changes locally during live events
+    final targetCommand = _isPlaying ? 'PAUSE' : 'PLAY';
+    final currentPositionMs = _position.inMilliseconds;
     if (_isPlaying) {
       await _audioPlayer.pause();
     } else {
       await _audioPlayer.play();
     }
+    onPlaybackStateChanged?.call(targetCommand, currentPositionMs);
+  }
+
+  Future<void> toggleMute() async {
+    _isMuted = !_isMuted;
+    await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
+    notifyListeners();
   }
 
   Future<void> stop() async {
@@ -100,12 +126,15 @@ class AudioProvider extends ChangeNotifier {
   }
 
   Future<void> nextTrack() async {
+    if (_isLiveEvent) return;
     if (_currentIndex < _playlist.length - 1) {
       _currentIndex++;
       if (_playlist[_currentIndex].audioUrl != null && _playlist[_currentIndex].audioUrl!.isNotEmpty) {
         try {
           await _audioPlayer.setUrl(_playlist[_currentIndex].audioUrl!);
+          await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
           _audioPlayer.play();
+          onPlaybackStateChanged?.call('PLAY', 0);
         } catch (e) {
           debugPrint("Error playing next audio: \$e");
           // Optionally, automatically skip to the next track if this one fails
@@ -117,12 +146,15 @@ class AudioProvider extends ChangeNotifier {
   }
 
   Future<void> previousTrack() async {
+    if (_isLiveEvent) return;
     if (_currentIndex > 0) {
       _currentIndex--;
       if (_playlist[_currentIndex].audioUrl != null && _playlist[_currentIndex].audioUrl!.isNotEmpty) {
         try {
           await _audioPlayer.setUrl(_playlist[_currentIndex].audioUrl!);
+          await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
           _audioPlayer.play();
+          onPlaybackStateChanged?.call('PLAY', 0);
         } catch (e) {
           debugPrint("Error playing previous audio: \$e");
           // Optionally, automatically skip to the previous track if this one fails
@@ -134,7 +166,9 @@ class AudioProvider extends ChangeNotifier {
   }
 
   Future<void> seek(Duration position) async {
+    if (_isLiveEvent) return;
     await _audioPlayer.seek(position);
+    onPlaybackStateChanged?.call('SEEK', position.inMilliseconds);
   }
 
   @override

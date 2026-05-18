@@ -29,18 +29,23 @@ public class EventPlaylistEntry {
     private User suggestedBy;
 
     @Column(name = "vote_count", nullable = false)
+    @Builder.Default
     private int voteCount = 0;
 
     @Column(nullable = false)
+    @Builder.Default
     private int position = 0;
 
     // "queued" | "playing" | "played" | "skipped"
     @Column(nullable = false)
+    @Builder.Default
     private String status = "queued";
 
     @OneToMany(mappedBy = "playlistEntry", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Vote> votes = new ArrayList<>();
 
     @Column(name = "suggested_at", updatable = false)
+    @Builder.Default
     private LocalDateTime suggestedAt = LocalDateTime.now();
 }

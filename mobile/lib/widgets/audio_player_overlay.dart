@@ -128,7 +128,7 @@ class AudioPlayerOverlay extends StatelessWidget {
                             inactiveColor: Colors.grey.withOpacity(0.5),
                             value: audioProvider.position.inSeconds.toDouble().clamp(0.0, audioProvider.duration.inSeconds.toDouble() > 0 ? audioProvider.duration.inSeconds.toDouble() : 1.0),
                             max: audioProvider.duration.inSeconds.toDouble() > 0 ? audioProvider.duration.inSeconds.toDouble() : 1.0,
-                            onChanged: (val) {
+                            onChanged: audioProvider.isLiveEvent ? null : (val) {
                               audioProvider.seek(Duration(seconds: val.toInt()));
                             },
                           ),
@@ -148,28 +148,64 @@ class AudioPlayerOverlay extends StatelessWidget {
                               ],
                             ),
                           ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                iconSize: 48,
-                                icon: const Icon(Icons.skip_previous, color: Colors.white),
-                                onPressed: () => audioProvider.previousTrack(),
+                          if (audioProvider.isLiveEvent) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(color: Colors.greenAccent, width: 1.5),
                               ),
-                              const SizedBox(width: 20),
-                              IconButton(
-                                iconSize: 64,
-                                icon: Icon(audioProvider.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white),
-                                onPressed: () => audioProvider.togglePlayPause(),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.greenAccent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    "LIVE ROOM PLAYBACK",
+                                    style: TextStyle(
+                                      color: Colors.greenAccent,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 20),
-                              IconButton(
-                                iconSize: 48,
-                                icon: const Icon(Icons.skip_next, color: Colors.white),
-                                onPressed: () => audioProvider.nextTrack(),
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 16),
+                          ] else ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  iconSize: 48,
+                                  icon: const Icon(Icons.skip_previous, color: Colors.white),
+                                  onPressed: () => audioProvider.previousTrack(),
+                                ),
+                                const SizedBox(width: 20),
+                                IconButton(
+                                  iconSize: 64,
+                                  icon: Icon(audioProvider.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white),
+                                  onPressed: () => audioProvider.togglePlayPause(),
+                                ),
+                                const SizedBox(width: 20),
+                                IconButton(
+                                  iconSize: 48,
+                                  icon: const Icon(Icons.skip_next, color: Colors.white),
+                                  onPressed: () => audioProvider.nextTrack(),
+                                ),
+                              ],
+                            ),
+                          ],
                           if (track.description != null && track.description!.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Container(
@@ -243,19 +279,46 @@ class AudioPlayerOverlay extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(audioProvider.isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
-                        onPressed: () => audioProvider.togglePlayPause(),
+                  if (audioProvider.isLiveEvent)
+                    Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.greenAccent, width: 1),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_next, color: Colors.white),
-                        onPressed: () => audioProvider.nextTrack(),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.sensors_rounded, color: Colors.greenAccent, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            "LIVE",
+                            style: TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    )
+                  else
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(audioProvider.isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                          onPressed: () => audioProvider.togglePlayPause(),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.skip_next, color: Colors.white),
+                          onPressed: () => audioProvider.nextTrack(),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

@@ -10,4 +10,6 @@ public class PlaybackMessage {
     private String coverUrl;
     private String audioUrl;
     private String suggestedByName;
+    private String command; // "PLAY", "PAUSE", "SEEK", "STOP"
+    private Long positionMs;
 }

@@ -2,6 +2,7 @@ package com.musicroom.musicroom.controller;
 
 import com.musicroom.musicroom.dto.*;
 import com.musicroom.musicroom.service.EventService;
+import com.musicroom.musicroom.service.PlaybackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class EventController {
 
     private final EventService eventService;
     private final WebSocketEventListener webSocketEventListener;
+    private final PlaybackService playbackService;
 
     @Operation(summary = "Créer un événement")
     @PostMapping
@@ -95,6 +97,17 @@ public class EventController {
         return ResponseEntity.status(201).body(eventService.suggestTrack(userId, id, request));
     }
 
+    @Operation(summary = "Supprimer une track de la playlist")
+    @DeleteMapping("/{id}/playlist/{entryId}")
+    public ResponseEntity<Void> removeTrack(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @PathVariable UUID entryId) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        eventService.removeTrack(userId, id, entryId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Voter pour une track")
     @PostMapping("/{id}/playlist/{entryId}/vote")
     public ResponseEntity<PlaylistEntryDto> vote(
@@ -164,5 +177,13 @@ public class EventController {
     public ResponseEntity<List<java.util.Map<String, Object>>> getActiveListeners(
             @PathVariable UUID id) {
         return ResponseEntity.ok(webSocketEventListener.getActiveListeners(id));
+    }
+
+    @Operation(summary = "Vérifier si l'événement est en cours de lecture")
+    @GetMapping("/{id}/playback-status")
+    public ResponseEntity<java.util.Map<String, Object>> getPlaybackStatus(
+            @PathVariable UUID id) {
+        boolean isPlaying = playbackService.isEventPlaying(id);
+        return ResponseEntity.ok(java.util.Map.of("isPlaying", isPlaying));
     }
 }

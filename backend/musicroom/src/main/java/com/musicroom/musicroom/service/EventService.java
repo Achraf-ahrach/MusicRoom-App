@@ -16,6 +16,7 @@ public interface EventService {
     void inviteUser(UUID ownerId, UUID eventId, InviteUserRequest request);
     List<PlaylistEntryDto> getPlaylist(UUID eventId);
     PlaylistEntryDto suggestTrack(UUID userId, UUID eventId, SuggestTrackRequest request);
+    void removeTrack(UUID userId, UUID eventId, UUID entryId);
     PlaylistEntryDto vote(UUID userId, UUID eventId, UUID entryId, VoteRequest request);
     EventDto updateEventCover(UUID userId, UUID eventId, MultipartFile cover);
     Map<String, Object> getEventUserRole(UUID userId, UUID eventId);

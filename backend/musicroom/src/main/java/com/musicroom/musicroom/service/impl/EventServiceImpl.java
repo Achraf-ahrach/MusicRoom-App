@@ -7,6 +7,7 @@ import com.musicroom.musicroom.exception.ResourceNotFoundException;
 import com.musicroom.musicroom.exception.UnauthorizedException;
 import com.musicroom.musicroom.repository.*;
 import com.musicroom.musicroom.service.EventService;
+import com.musicroom.musicroom.service.PlaybackService;
 import com.musicroom.musicroom.dto.websocket.VoteMessageType;
 import com.musicroom.musicroom.dto.websocket.VoteUpdateMessage;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class EventServiceImpl implements EventService {
     private final VoteRepository voteRepo;
     private final TrackRepository trackRepo;
     private final SimpMessagingTemplate messagingTemplate;
+    private final PlaybackService playbackService;
 
     @Override
     @Transactional
@@ -196,7 +198,9 @@ public class EventServiceImpl implements EventService {
                 if (voteCompare != 0) {
                     return voteCompare;
                 }
-                return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+                java.time.LocalDateTime aTime = a.getSuggestedAt() != null ? a.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                java.time.LocalDateTime bTime = b.getSuggestedAt() != null ? b.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                return aTime.compareTo(bTime);
             });
         }
 
@@ -262,7 +266,28 @@ public class EventServiceImpl implements EventService {
 
         playlistRepo.save(entry);
         broadcastPlaylistUpdate(eventId, userId, entry, VoteMessageType.PLAYLIST_UPDATED);
+
+        // Notify playback engine (auto-plays if event is active and queue was empty)
+        playbackService.onPlaylistChanged(eventId);
+
         return toPlaylistEntryDto(entry);
+    }
+
+    @Override
+    @Transactional
+    public void removeTrack(UUID userId, UUID eventId, UUID entryId) {
+        if (!eventRepo.existsById(eventId)) {
+            throw new ResourceNotFoundException("Event not found");
+        }
+        EventPlaylistEntry entry = playlistRepo.findById(entryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist entry not found"));
+
+        playlistRepo.delete(entry);
+        playlistRepo.flush();
+        broadcastPlaylistUpdate(eventId, userId, entry, VoteMessageType.PLAYLIST_UPDATED);
+
+        // Notify playback engine
+        playbackService.onPlaylistChanged(eventId);
     }
 
     @Override
@@ -442,7 +467,9 @@ public class EventServiceImpl implements EventService {
                 if (voteCompare != 0) {
                     return voteCompare;
                 }
-                return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+                java.time.LocalDateTime aTime = a.getSuggestedAt() != null ? a.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                java.time.LocalDateTime bTime = b.getSuggestedAt() != null ? b.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                return aTime.compareTo(bTime);
             });
         }
 

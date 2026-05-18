@@ -34,12 +34,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   StompClient? _stompClient;
   bool _isLoading = true;
   bool _isWsConnected = false;
+  bool _isEventPlaying = false;
 
   Map<String, dynamic>? _eventDetails;
   String _userRole = 'none'; // 'editor' | 'viewer' | 'none'
   bool _allowed = false;
   String _visibility = 'public';
   List<Map<String, dynamic>> _tracks = [];
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    if (duration.inHours > 0) {
+      return "${duration.inHours}:$twoDigitMinutes:$twoDigitSeconds";
+    }
+    return "$twoDigitMinutes:$twoDigitSeconds";
+  }
 
   @override
   void initState() {
@@ -79,11 +90,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final details = await _eventService.getEventById(widget.eventId, token);
       final playlist = await _eventService.getEventPlaylist(widget.eventId, token);
 
+      bool isPlaying = false;
+      try {
+        final playbackStatus = await _eventService.getPlaybackStatus(widget.eventId, token);
+        isPlaying = playbackStatus['isPlaying'] ?? false;
+      } catch (e) {
+        debugPrint('Error fetching playback status: $e');
+      }
+
       setState(() {
         _eventDetails = details;
         _tracks = playlist;
+        _isEventPlaying = isPlaying;
         _isLoading = false;
       });
+
+      if (isPlaying && playlist.isNotEmpty) {
+        final firstTrack = Track.fromPlaylistTrackJson(playlist[0]);
+        final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+        if (audioProvider.currentTrack?.id != firstTrack.id || !audioProvider.isPlaying) {
+          audioProvider.playTrack(firstTrack, isLiveEvent: true);
+        }
+      }
 
       // 3. Connect to STOMP WebSocket
       if (_stompClient == null || !_isWsConnected) {
@@ -197,6 +225,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       type == 'ROLE_CHANGE' ||
                       type == 'EVENT_UPDATED') {
                     _refreshRoleAndAccess();
+                  } else if (type == 'EVENT_STARTED') {
+                    setState(() {
+                      _isEventPlaying = true;
+                    });
                   }
                 } catch (e) {
                   debugPrint('Error parsing event updates: $e');
@@ -212,11 +244,35 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               if (frame.body != null && mounted) {
                 try {
                   final data = jsonDecode(frame.body!);
+                  final String command = data['command'] ?? 'PLAY_TRACK';
                   final String trackId = data['trackId']?.toString() ?? '';
                   final String title = data['title'] ?? '';
                   final String artistName = data['artist'] ?? '';
                   final String imageUrl = data['coverUrl'] ?? '';
                   final String audioUrl = data['audioUrl'] ?? '';
+
+                  if (command == 'QUEUE_EMPTY') {
+                    setState(() {
+                      _isEventPlaying = false;
+                    });
+                    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                    audioProvider.stop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        duration: Duration(seconds: 2),
+                        backgroundColor: Colors.amber,
+                        content: Text(
+                          'Queue is empty. Playback stopped.',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() {
+                    _isEventPlaying = true;
+                  });
 
                   final audioProvider = Provider.of<AudioProvider>(context, listen: false);
 
@@ -233,14 +289,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     audioUrl: audioUrl.isNotEmpty ? audioUrl : null,
                   );
 
-                  audioProvider.playTrack(receivedTrack);
+                  audioProvider.playTrack(receivedTrack, isLiveEvent: true);
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       duration: const Duration(seconds: 2),
                       backgroundColor: Colors.green,
                       content: Text(
-                        'Host started: "$title" by $artistName',
+                        'Live Track: "$title" by $artistName',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -717,9 +773,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           Consumer<AudioProvider>(
                             builder: (context, audioProvider, child) {
                               final hasTracks = _tracks.isNotEmpty;
-                              final firstTrack = hasTracks ? Track.fromPlaylistTrackJson(_tracks[0]) : null;
-                              final isCurrent = firstTrack != null && audioProvider.currentTrack?.id == firstTrack.id;
-                              final isPlaying = isCurrent && audioProvider.isPlaying;
 
                               return Row(
                                 children: [
@@ -727,7 +780,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: isPlaying ? Colors.amber[800] : Colors.blueAccent,
+                                          backgroundColor: _isEventPlaying ? Colors.green.withOpacity(0.3) : Colors.blueAccent,
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(vertical: 14),
                                           shape: RoundedRectangleBorder(
@@ -736,47 +789,31 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           elevation: 4,
                                         ),
                                         icon: Icon(
-                                          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                          _isEventPlaying ? Icons.sensors_rounded : Icons.play_arrow_rounded,
                                           size: 22,
+                                          color: _isEventPlaying ? Colors.greenAccent : Colors.white,
                                         ),
                                         label: Text(
-                                          isPlaying ? 'Pause Event' : 'Start Event',
+                                          _isEventPlaying ? 'Event is Live' : 'Start Event',
                                           style: const TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.bold,
                                             letterSpacing: 0.2,
                                           ),
                                         ),
-                                        onPressed: !hasTracks
+                                        onPressed: (_isEventPlaying || !hasTracks)
                                             ? null
                                             : () {
-                                                if (isPlaying) {
-                                                  audioProvider.togglePlayPause();
-                                                } else {
-                                                  if (firstTrack != null) {
-                                                    audioProvider.playTrack(firstTrack);
-
-                                                    // Broadcast it via WebSocket
-                                                    if (_stompClient != null && _isWsConnected) {
-                                                      final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
-                                                      final suggestedByMap = _tracks[0]['suggestedBy'] as Map?;
-                                                      final suggestedByName = suggestedByMap?['displayName']?.toString() ?? '';
-
-                                                      final payload = {
-                                                        'trackId': firstTrack.id,
-                                                        'title': firstTrack.title,
-                                                        'artist': firstTrack.artistName,
-                                                        'coverUrl': firstTrack.imageUrl ?? '',
-                                                        'audioUrl': firstTrack.audioUrl ?? '',
-                                                        'suggestedByName': suggestedByName,
-                                                      };
-                                                      _stompClient?.send(
-                                                        destination: '/app/event/${widget.eventId}/playback',
-                                                        body: jsonEncode(payload),
-                                                        headers: token != null ? {'Authorization': 'Bearer $token'} : null,
-                                                      );
-                                                    }
-                                                  }
+                                                if (_stompClient != null && _isWsConnected) {
+                                                  final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
+                                                  final payload = {
+                                                    'command': 'START_EVENT',
+                                                  };
+                                                  _stompClient?.send(
+                                                    destination: '/app/event/${widget.eventId}/playback',
+                                                    body: jsonEncode(payload),
+                                                    headers: token != null ? {'Authorization': 'Bearer $token'} : null,
+                                                  );
                                                 }
                                               },
                                       ),
@@ -998,6 +1035,40 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
+                                          if (isCurrent) ...[
+                                            const SizedBox(height: 8),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(2),
+                                              child: LinearProgressIndicator(
+                                                value: audioProvider.duration.inMilliseconds > 0
+                                                    ? audioProvider.position.inMilliseconds / audioProvider.duration.inMilliseconds
+                                                    : 0.0,
+                                                backgroundColor: Colors.white10,
+                                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.greenAccent),
+                                                minHeight: 4,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  _formatDuration(audioProvider.position),
+                                                  style: TextStyle(
+                                                    color: Colors.grey[400],
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _formatDuration(audioProvider.duration),
+                                                  style: TextStyle(
+                                                    color: Colors.grey[400],
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                           if (suggestedByName.isNotEmpty) ...[
                                             const SizedBox(height: 4),
                                             Text(

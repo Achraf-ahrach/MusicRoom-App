@@ -89,7 +89,7 @@ public class WebSocketEventListener {
                         log.warn("Could not register active listener user details: {}", ex.getMessage());
                     }
 
-                    int count = roomListeners.get(eventId).size();
+                    int count = calculateUniqueListenerCount(eventId);
                     broadcastListenerCount(eventId, count);
                 }
             } catch (Exception e) {
@@ -127,7 +127,7 @@ public class WebSocketEventListener {
             Set<String> sessions = roomListeners.get(eventId);
             if (sessions != null) {
                 sessions.remove(sessionId);
-                int count = sessions.size();
+                int count = calculateUniqueListenerCount(eventId);
                 broadcastListenerCount(eventId, count);
 
                 if (count == 0) {
@@ -172,6 +172,31 @@ public class WebSocketEventListener {
             }
         }
         return new java.util.ArrayList<>(uniqueUsers.values());
+    }
+
+    private int calculateUniqueListenerCount(UUID eventId) {
+        Set<String> sessions = roomListeners.get(eventId);
+        if (sessions == null || sessions.isEmpty()) {
+            return 0;
+        }
+        
+        Map<String, Map<String, Object>> userListeners = roomUserListeners.get(eventId);
+        Set<String> uniqueUserIds = new java.util.HashSet<>();
+        int anonymousCount = 0;
+        
+        for (String sessId : sessions) {
+            if (userListeners != null && userListeners.containsKey(sessId)) {
+                String userId = (String) userListeners.get(sessId).get("userId");
+                if (userId != null) {
+                    uniqueUserIds.add(userId);
+                } else {
+                    anonymousCount++;
+                }
+            } else {
+                anonymousCount++;
+            }
+        }
+        return uniqueUserIds.size() + anonymousCount;
     }
 
     private void broadcastListenerCount(UUID eventId, int count) {

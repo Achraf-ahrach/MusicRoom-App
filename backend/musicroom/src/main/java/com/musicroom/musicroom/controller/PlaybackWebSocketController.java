@@ -1,16 +1,14 @@
 package com.musicroom.musicroom.controller;
 
 import com.musicroom.musicroom.dto.websocket.PlaybackMessage;
-import com.musicroom.musicroom.entity.Event;
-import com.musicroom.musicroom.repository.EventRepository;
 import com.musicroom.musicroom.security.JwtTokenProvider;
+import com.musicroom.musicroom.service.PlaybackService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 
@@ -21,10 +19,14 @@ import java.util.UUID;
 @Slf4j
 public class PlaybackWebSocketController {
 
-    private final SimpMessagingTemplate messagingTemplate;
-    private final EventRepository eventRepository;
+    private final PlaybackService playbackService;
     private final JwtTokenProvider jwtTokenProvider;
 
+    /**
+     * Handle playback commands from clients.
+     * Only START_EVENT is accepted — once started, the server manages everything.
+     * PAUSE / STOP / SEEK commands are ignored (music cannot be stopped).
+     */
     @MessageMapping("/event/{eventId}/playback")
     public void handlePlayback(
             @DestinationVariable UUID eventId,
@@ -32,25 +34,17 @@ public class PlaybackWebSocketController {
             SimpMessageHeaderAccessor headerAccessor) {
 
         UUID userId = resolveUserId(headerAccessor);
+        String command = message.getCommand();
 
-        // Verify if user is the owner of the event
-        Event event = eventRepository.findById(eventId)
-                .orElse(null);
-
-        if (event == null) {
-            log.warn("Playback sync request for non-existent event: {}", eventId);
-            return;
+        if ("START_EVENT".equals(command)) {
+            log.info("User {} requesting to start event {}", userId, eventId);
+            playbackService.startEvent(eventId, userId);
+        } else {
+            // All other commands (PAUSE, STOP, SEEK, PLAY) are ignored
+            // The server is the sole controller of playback
+            log.debug("Ignoring client playback command '{}' for event {} from user {} — server controls playback",
+                    command, eventId, userId);
         }
-
-        if (!event.getOwner().getId().equals(userId)) {
-            log.warn("User {} attempted to control playback for event {} but is not the owner", userId, eventId);
-            return;
-        }
-
-        log.info("Broadcasting playback start for event {}: {} by {}", eventId, message.getTitle(), message.getArtist());
-
-        // Broadcast to all listeners of the event
-        messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playback", message);
     }
 
     private UUID resolveUserId(SimpMessageHeaderAccessor headerAccessor) {

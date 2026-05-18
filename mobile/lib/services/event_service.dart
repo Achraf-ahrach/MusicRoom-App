@@ -160,6 +160,26 @@ class EventService {
     }
   }
 
+  // Remove track from event playlist
+  Future<void> removeTrack(String eventId, String entryId, String token) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/playlist/$entryId');
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      final errorMsg = response.body.trim().isEmpty 
+          ? 'Status ${response.statusCode}' 
+          : response.body;
+      throw Exception('Failed to remove track: $errorMsg');
+    }
+  }
+
   Future<void> updateEventSettings(
     String eventId,
     String name,
@@ -263,6 +283,25 @@ class EventService {
 
     if (response.statusCode != 204 && response.statusCode != 200) {
       throw Exception('Failed to remove collaborator');
+    }
+  }
+
+  // Check if event playback is active
+  Future<Map<String, dynamic>> getPlaybackStatus(String eventId, String token) async {
+    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/playback-status');
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to fetch playback status: ${response.statusCode}');
     }
   }
 }
