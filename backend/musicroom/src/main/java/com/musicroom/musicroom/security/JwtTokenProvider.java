@@ -14,7 +14,7 @@ public class JwtTokenProvider {
     private String jwtSecret;
 
     public long getAccessTokenExpiration() {
-        return 600000;  // 10 minutes
+        return 604800000;  // 7 days
     }
 
     public long getRefreshTokenExpiration() {

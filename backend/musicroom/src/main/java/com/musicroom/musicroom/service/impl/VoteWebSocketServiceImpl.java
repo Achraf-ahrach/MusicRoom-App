@@ -100,10 +100,18 @@ public class VoteWebSocketServiceImpl implements VoteWebSocketService {
             UUID userId,
             EventPlaylistEntry entry) {
 
-        // récupérer la playlist complète reordonnée par vote
-        List<PlaylistEntryDto> playlist = playlistRepo
-                .findByEventIdOrderByVoteCountDesc(eventId)
-                .stream()
+        List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
+        if (entries.size() > 1) {
+            entries.subList(1, entries.size()).sort((a, b) -> {
+                int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                if (voteCompare != 0) {
+                    return voteCompare;
+                }
+                return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+            });
+        }
+
+        List<PlaylistEntryDto> playlist = entries.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
 

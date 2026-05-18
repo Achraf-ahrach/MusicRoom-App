@@ -186,8 +186,21 @@ public class EventServiceImpl implements EventService {
         eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
-        return playlistRepo.findByEventIdOrderByVoteCountDesc(eventId)
-                .stream()
+        List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
+        if (entries.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        if (entries.size() > 1) {
+            entries.subList(1, entries.size()).sort((a, b) -> {
+                int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                if (voteCompare != 0) {
+                    return voteCompare;
+                }
+                return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+            });
+        }
+
+        return entries.stream()
                 .map(this::toPlaylistEntryDto)
                 .collect(Collectors.toList());
     }
@@ -422,9 +435,18 @@ public class EventServiceImpl implements EventService {
     }
 
     private void broadcastPlaylistUpdate(UUID eventId, UUID userId, EventPlaylistEntry entry, VoteMessageType type) {
-        List<PlaylistEntryDto> playlist = playlistRepo
-                .findByEventIdOrderByVoteCountDesc(eventId)
-                .stream()
+        List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
+        if (entries.size() > 1) {
+            entries.subList(1, entries.size()).sort((a, b) -> {
+                int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                if (voteCompare != 0) {
+                    return voteCompare;
+                }
+                return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+            });
+        }
+
+        List<PlaylistEntryDto> playlist = entries.stream()
                 .map(this::toPlaylistEntryDto)
                 .collect(Collectors.toList());
 
