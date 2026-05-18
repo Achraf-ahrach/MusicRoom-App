@@ -293,6 +293,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       return;
     }
 
+    final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
+
     final payload = {
       'entryId': entryId,
       'value': value,
@@ -301,6 +303,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     _stompClient?.send(
       destination: '/app/event/${widget.eventId}/vote',
       body: jsonEncode(payload),
+      headers: token != null ? {'Authorization': 'Bearer $token'} : null,
     );
   }
 
