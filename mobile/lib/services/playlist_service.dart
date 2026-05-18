@@ -24,11 +24,11 @@ class PlaylistService {
 
   StompClient? _stompClient;
   Map<String, String> _headers(String token) => {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-        'User-Agent': 'MusicRoomApp/1.0',
-        'ngrok-skip-browser-warning': 'true',
-      };
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token',
+    'User-Agent': 'MusicRoomApp/1.0',
+    'ngrok-skip-browser-warning': 'true',
+  };
 
   // Retrieve current playlists
   Future<List<Playlist>> getMyPlaylists(String token) async {
@@ -56,7 +56,9 @@ class PlaylistService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data
-          .map((json) => Track.fromPlaylistTrackJson(json as Map<String, dynamic>))
+          .map(
+            (json) => Track.fromPlaylistTrackJson(json as Map<String, dynamic>),
+          )
           .toList();
     }
 
@@ -108,7 +110,10 @@ class PlaylistService {
     throw Exception('Failed to load saved playlists (${response.statusCode})');
   }
 
-  Future<List<Playlist>> getPublicPlaylistsByUser(String userId, String token) async {
+  Future<List<Playlist>> getPublicPlaylistsByUser(
+    String userId,
+    String token,
+  ) async {
     final response = await http.get(
       Uri.parse('$_effectiveBaseUrl/api/playlists/public/user/$userId'),
       headers: _headers(token),
@@ -121,7 +126,12 @@ class PlaylistService {
   }
 
   // Create a new playlist
-  Future<Playlist> createPlaylist(String name, String description, String visibility, String token) async {
+  Future<Playlist> createPlaylist(
+    String name,
+    String description,
+    String visibility,
+    String token,
+  ) async {
     final response = await http.post(
       Uri.parse('$_effectiveBaseUrl/api/playlists'),
       headers: _headers(token),
@@ -156,14 +166,16 @@ class PlaylistService {
   }
 
   // Invite user to playlist
-  Future<void> inviteUserToPlaylist(String playlistId, String userId, String permission, String token) async {
+  Future<void> inviteUserToPlaylist(
+    String playlistId,
+    String userId,
+    String permission,
+    String token,
+  ) async {
     final response = await http.post(
       Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/invite'),
       headers: _headers(token),
-      body: json.encode({
-        'userId': userId,
-        'permission': permission,
-      }),
+      body: json.encode({'userId': userId, 'permission': permission}),
     );
 
     if (response.statusCode != 201 && response.statusCode != 200) {
@@ -172,7 +184,12 @@ class PlaylistService {
   }
 
   // Add track to playlist using WebSockets
-  Future<void> addTrackToPlaylist(String playlistId, Track track, String token, int version) async {
+  Future<void> addTrackToPlaylist(
+    String playlistId,
+    Track track,
+    String token,
+    int version,
+  ) async {
     final completer = Completer<void>();
 
     if (_stompClient != null && _stompClient!.isActive) {
@@ -182,7 +199,7 @@ class PlaylistService {
     }
 
     final wsUrl = _effectiveBaseUrl.replaceFirst('http', 'ws') + '/ws';
-    
+
     _stompClient = StompClient(
       config: StompConfig(
         url: wsUrl,
@@ -191,7 +208,7 @@ class PlaylistService {
           if (!completer.isCompleted) {
             completer.complete();
           }
-          
+
           // Disconnect after sending (or keep it open for other things)
           Future.delayed(const Duration(seconds: 2), () {
             _stompClient?.deactivate();
@@ -201,7 +218,9 @@ class PlaylistService {
         onStompError: (frame) {
           if (!completer.isCompleted) {
             completer.completeError(
-              Exception(frame.body ?? 'WebSocket STOMP error while adding track'),
+              Exception(
+                frame.body ?? 'WebSocket STOMP error while adding track',
+              ),
             );
           }
         },
@@ -212,33 +231,35 @@ class PlaylistService {
         },
         onDisconnect: (frame) {
           if (!completer.isCompleted) {
-            completer.completeError(Exception('WebSocket disconnected before track add'));
+            completer.completeError(
+              Exception('WebSocket disconnected before track add'),
+            );
           }
         },
-        stompConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        },
-        webSocketConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        },
+        stompConnectHeaders: {'Authorization': 'Bearer $token'},
+        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
       ),
     );
 
     _stompClient!.activate();
     return completer.future.timeout(
       const Duration(seconds: 8),
-      onTimeout: () => throw Exception('Timed out while adding track to playlist'),
+      onTimeout: () =>
+          throw Exception('Timed out while adding track to playlist'),
     );
   }
 
-  void _sendAddTrackMessage(String playlistId, Track track, String token, int version) {
+  void _sendAddTrackMessage(
+    String playlistId,
+    Track track,
+    String token,
+    int version,
+  ) {
     if (_stompClient == null) return;
-    
+
     _stompClient!.send(
       destination: '/app/playlist/$playlistId/add',
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Authorization': 'Bearer $token'},
       body: jsonEncode({
         'externalId': track.id,
         'provider': 'audius', // or fallback
@@ -246,14 +267,19 @@ class PlaylistService {
         'artist': track.artistName,
         'album': '',
         'coverUrl': track.imageUrl ?? '',
-        'durationMs': null,
+        'durationMs': track.durationMs,
         'version': version,
       }),
     );
   }
 
   // Remove track from playlist using WebSockets
-  Future<void> removeTrackFromPlaylist(String playlistId, String playlistTrackId, String token, int version) async {
+  Future<void> removeTrackFromPlaylist(
+    String playlistId,
+    String playlistTrackId,
+    String token,
+    int version,
+  ) async {
     final completer = Completer<void>();
 
     if (_stompClient != null && _stompClient!.isActive) {
@@ -263,7 +289,7 @@ class PlaylistService {
     }
 
     final wsUrl = _effectiveBaseUrl.replaceFirst('http', 'ws') + '/ws';
-    
+
     _stompClient = StompClient(
       config: StompConfig(
         url: wsUrl,
@@ -272,7 +298,7 @@ class PlaylistService {
           if (!completer.isCompleted) {
             completer.complete();
           }
-          
+
           Future.delayed(const Duration(seconds: 2), () {
             _stompClient?.deactivate();
             _stompClient = null;
@@ -281,7 +307,9 @@ class PlaylistService {
         onStompError: (frame) {
           if (!completer.isCompleted) {
             completer.completeError(
-              Exception(frame.body ?? 'WebSocket STOMP error while removing track'),
+              Exception(
+                frame.body ?? 'WebSocket STOMP error while removing track',
+              ),
             );
           }
         },
@@ -292,37 +320,36 @@ class PlaylistService {
         },
         onDisconnect: (frame) {
           if (!completer.isCompleted) {
-            completer.completeError(Exception('WebSocket disconnected before track remove'));
+            completer.completeError(
+              Exception('WebSocket disconnected before track remove'),
+            );
           }
         },
-        stompConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        },
-        webSocketConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        },
+        stompConnectHeaders: {'Authorization': 'Bearer $token'},
+        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
       ),
     );
 
     _stompClient!.activate();
     return completer.future.timeout(
       const Duration(seconds: 8),
-      onTimeout: () => throw Exception('Timed out while removing track from playlist'),
+      onTimeout: () =>
+          throw Exception('Timed out while removing track from playlist'),
     );
   }
 
-  void _sendRemoveTrackMessage(String playlistId, String playlistTrackId, String token, int version) {
+  void _sendRemoveTrackMessage(
+    String playlistId,
+    String playlistTrackId,
+    String token,
+    int version,
+  ) {
     if (_stompClient == null) return;
-    
+
     _stompClient!.send(
       destination: '/app/playlist/$playlistId/remove',
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'trackId': playlistTrackId,
-        'version': version,
-      }),
+      headers: {'Authorization': 'Bearer $token'},
+      body: jsonEncode({'trackId': playlistTrackId, 'version': version}),
     );
   }
 
@@ -343,13 +370,15 @@ class PlaylistService {
   }
 
   // Update playlist visibility
-  Future<Playlist> updatePlaylistVisibility(String playlistId, String visibility, String token) async {
+  Future<Playlist> updatePlaylistVisibility(
+    String playlistId,
+    String visibility,
+    String token,
+  ) async {
     final response = await http.put(
       Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId'),
       headers: _headers(token),
-      body: jsonEncode({
-        'visibility': visibility,
-      }),
+      body: jsonEncode({'visibility': visibility}),
     );
 
     if (response.statusCode == 200) {
@@ -363,7 +392,10 @@ class PlaylistService {
   }
 
   // Get all collaborators
-  Future<List<dynamic>> getPlaylistCollaborators(String playlistId, String token) async {
+  Future<List<dynamic>> getPlaylistCollaborators(
+    String playlistId,
+    String token,
+  ) async {
     final response = await http.get(
       Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/collaborators'),
       headers: _headers(token),
@@ -375,13 +407,18 @@ class PlaylistService {
   }
 
   // Update collaborator role
-  Future<void> updateCollaboratorRole(String playlistId, String collaboratorId, String permission, String token) async {
+  Future<void> updateCollaboratorRole(
+    String playlistId,
+    String collaboratorId,
+    String permission,
+    String token,
+  ) async {
     final response = await http.put(
-      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/collaborators/$collaboratorId'),
+      Uri.parse(
+        '$_effectiveBaseUrl/api/playlists/$playlistId/collaborators/$collaboratorId',
+      ),
       headers: _headers(token),
-      body: jsonEncode({
-        'permission': permission,
-      }),
+      body: jsonEncode({'permission': permission}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to update role (${response.statusCode})');
@@ -389,9 +426,15 @@ class PlaylistService {
   }
 
   // Remove collaborator
-  Future<void> removeCollaborator(String playlistId, String collaboratorId, String token) async {
+  Future<void> removeCollaborator(
+    String playlistId,
+    String collaboratorId,
+    String token,
+  ) async {
     final response = await http.delete(
-      Uri.parse('$_effectiveBaseUrl/api/playlists/$playlistId/collaborators/$collaboratorId'),
+      Uri.parse(
+        '$_effectiveBaseUrl/api/playlists/$playlistId/collaborators/$collaboratorId',
+      ),
       headers: _headers(token),
     );
     if (response.statusCode != 204 && response.statusCode != 200) {

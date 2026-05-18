@@ -7,6 +7,7 @@ class Track {
   final String? audioUrl;
   final bool isStreamable;
   final String? description;
+  final int? durationMs;
 
   Track({
     required this.id,
@@ -17,6 +18,7 @@ class Track {
     this.audioUrl,
     this.isStreamable = true,
     this.description,
+    this.durationMs,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,9 @@ class Track {
     final String? fallbackStreamUrl = rawId != null
         ? 'https://discoveryprovider.audius.co/v1/tracks/$rawId/stream?app_name=MusicRoomApp'
         : null;
+
+    final int? durationSec = json['duration'] as int?;
+    final int? durationMs = durationSec != null ? durationSec * 1000 : null;
 
     return Track(
       id: rawId?.toString() ?? '',
@@ -39,12 +44,15 @@ class Track {
           : fallbackStreamUrl,
       isStreamable: json['is_streamable'] ?? json['is_available'] ?? true,
       description: json['description'],
+      durationMs: durationMs,
     );
   }
 
   factory Track.fromPlaylistTrackJson(Map<String, dynamic> json) {
-    final String? externalId = json['externalId']?.toString() ?? json['external_id']?.toString();
-    final String? fallbackStreamUrl = externalId != null && externalId.isNotEmpty
+    final String? externalId =
+        json['externalId']?.toString() ?? json['external_id']?.toString();
+    final String? fallbackStreamUrl =
+        externalId != null && externalId.isNotEmpty
         ? 'https://discoveryprovider.audius.co/v1/tracks/$externalId/stream?app_name=MusicRoomApp'
         : null;
 
@@ -57,6 +65,7 @@ class Track {
       audioUrl: fallbackStreamUrl,
       isStreamable: true,
       description: null,
+      durationMs: json['durationMs'] as int? ?? json['duration_ms'] as int?,
     );
   }
 }

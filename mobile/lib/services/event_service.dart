@@ -45,8 +45,8 @@ class EventService {
     );
 
     if (response.statusCode != 201) {
-      final errorMsg = response.body.trim().isEmpty 
-          ? 'Status ${response.statusCode}' 
+      final errorMsg = response.body.trim().isEmpty
+          ? 'Status ${response.statusCode}'
           : response.body;
       throw Exception('Failed to create event: $errorMsg');
     }
@@ -72,7 +72,10 @@ class EventService {
   }
 
   // Get current user role and access for an event
-  Future<Map<String, dynamic>> getEventUserRole(String eventId, String token) async {
+  Future<Map<String, dynamic>> getEventUserRole(
+    String eventId,
+    String token,
+  ) async {
     final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/role');
     final response = await http.get(
       url,
@@ -84,14 +87,18 @@ class EventService {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      return jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
     } else {
       throw Exception('Failed to fetch event role: ${response.statusCode}');
     }
   }
 
   // Get current event details
-  Future<Map<String, dynamic>> getEventById(String eventId, String token) async {
+  Future<Map<String, dynamic>> getEventById(
+    String eventId,
+    String token,
+  ) async {
     final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId');
     final response = await http.get(
       url,
@@ -103,14 +110,18 @@ class EventService {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      return jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
     } else {
       throw Exception('Failed to fetch event details: ${response.statusCode}');
     }
   }
 
   // Get event playlist
-  Future<List<Map<String, dynamic>>> getEventPlaylist(String eventId, String token) async {
+  Future<List<Map<String, dynamic>>> getEventPlaylist(
+    String eventId,
+    String token,
+  ) async {
     final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/playlist');
     final response = await http.get(
       url,
@@ -130,7 +141,11 @@ class EventService {
   }
 
   // Suggest track to event
-  Future<Map<String, dynamic>> suggestTrack(String eventId, Track track, String token) async {
+  Future<Map<String, dynamic>> suggestTrack(
+    String eventId,
+    Track track,
+    String token,
+  ) async {
     final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/playlist');
     final response = await http.post(
       url,
@@ -146,15 +161,16 @@ class EventService {
         'artist': track.artistName,
         'album': '',
         'coverUrl': track.imageUrl ?? '',
-        'durationMs': null,
+        'durationMs': track.durationMs,
       }),
     );
 
     if (response.statusCode == 201) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      return jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
     } else {
-      final errorMsg = response.body.trim().isEmpty 
-          ? 'Status ${response.statusCode}' 
+      final errorMsg = response.body.trim().isEmpty
+          ? 'Status ${response.statusCode}'
           : response.body;
       throw Exception('Failed to suggest track: $errorMsg');
     }
@@ -162,7 +178,9 @@ class EventService {
 
   // Remove track from event playlist
   Future<void> removeTrack(String eventId, String entryId, String token) async {
-    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/playlist/$entryId');
+    final url = Uri.parse(
+      '$_effectiveBaseUrl$_eventsPath/$eventId/playlist/$entryId',
+    );
     final response = await http.delete(
       url,
       headers: {
@@ -173,8 +191,8 @@ class EventService {
     );
 
     if (response.statusCode != 204 && response.statusCode != 200) {
-      final errorMsg = response.body.trim().isEmpty 
-          ? 'Status ${response.statusCode}' 
+      final errorMsg = response.body.trim().isEmpty
+          ? 'Status ${response.statusCode}'
           : response.body;
       throw Exception('Failed to remove track: $errorMsg');
     }
@@ -207,8 +225,13 @@ class EventService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getEventCollaborators(String eventId, String token) async {
-    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/collaborators');
+  Future<List<Map<String, dynamic>>> getEventCollaborators(
+    String eventId,
+    String token,
+  ) async {
+    final url = Uri.parse(
+      '$_effectiveBaseUrl$_eventsPath/$eventId/collaborators',
+    );
     final response = await http.get(
       url,
       headers: {
@@ -226,7 +249,10 @@ class EventService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getEventListeners(String eventId, String token) async {
+  Future<List<Map<String, dynamic>>> getEventListeners(
+    String eventId,
+    String token,
+  ) async {
     final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/listeners');
     final response = await http.get(
       url,
@@ -251,7 +277,9 @@ class EventService {
     String role,
     String token,
   ) async {
-    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/collaborators/$collaboratorId/role?role=$role');
+    final url = Uri.parse(
+      '$_effectiveBaseUrl$_eventsPath/$eventId/collaborators/$collaboratorId/role?role=$role',
+    );
     final response = await http.put(
       url,
       headers: {
@@ -271,7 +299,9 @@ class EventService {
     String collaboratorId,
     String token,
   ) async {
-    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/collaborators/$collaboratorId');
+    final url = Uri.parse(
+      '$_effectiveBaseUrl$_eventsPath/$eventId/collaborators/$collaboratorId',
+    );
     final response = await http.delete(
       url,
       headers: {
@@ -287,8 +317,13 @@ class EventService {
   }
 
   // Check if event playback is active
-  Future<Map<String, dynamic>> getPlaybackStatus(String eventId, String token) async {
-    final url = Uri.parse('$_effectiveBaseUrl$_eventsPath/$eventId/playback-status');
+  Future<Map<String, dynamic>> getPlaybackStatus(
+    String eventId,
+    String token,
+  ) async {
+    final url = Uri.parse(
+      '$_effectiveBaseUrl$_eventsPath/$eventId/playback-status',
+    );
     final response = await http.get(
       url,
       headers: {
@@ -299,9 +334,12 @@ class EventService {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      return jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
     } else {
-      throw Exception('Failed to fetch playback status: ${response.statusCode}');
+      throw Exception(
+        'Failed to fetch playback status: ${response.statusCode}',
+      );
     }
   }
 }

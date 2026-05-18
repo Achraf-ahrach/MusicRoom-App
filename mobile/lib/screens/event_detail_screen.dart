@@ -59,6 +59,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     super.didChangeDependencies();
     _audioProvider = Provider.of<AudioProvider>(context, listen: false);
     _audioProvider.onSyncPlayback = _syncLivePlayback;
+    _audioProvider.onTrackCompleted = _onLocalTrackCompleted;
   }
 
   @override
@@ -218,6 +219,31 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       }
     } catch (e) {
       debugPrint('Error synchronizing live playback: $e');
+    }
+  }
+
+  void _onLocalTrackCompleted() {
+    debugPrint('--- event_detail_screen: _onLocalTrackCompleted triggered');
+    if (!mounted) return;
+
+    // Only owners and editors have control to trigger a skip/advance on the server
+    final isController = _userRole == 'owner' || _userRole == 'editor';
+    if (_isEventPlaying && isController) {
+      debugPrint(
+        '--- event_detail_screen: user has playback control, sending NEXT_TRACK command to server',
+      );
+      if (_stompClient != null && _isWsConnected) {
+        final token = Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).currentUser?.accessToken;
+        final payload = {'command': 'NEXT_TRACK'};
+        _stompClient?.send(
+          destination: '/app/event/${widget.eventId}/playback',
+          body: jsonEncode(payload),
+          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
+        );
+      }
     }
   }
 
@@ -497,6 +523,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     _stompClient?.deactivate();
     try {
       _audioProvider.onSyncPlayback = null;
+      _audioProvider.onTrackCompleted = null;
       _audioProvider.stop();
     } catch (e) {
       debugPrint('Error stopping audio on dispose: $e');

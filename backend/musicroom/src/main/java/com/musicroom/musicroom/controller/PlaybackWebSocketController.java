@@ -39,6 +39,9 @@ public class PlaybackWebSocketController {
         if ("START_EVENT".equals(command)) {
             log.info("User {} requesting to start event {}", userId, eventId);
             playbackService.startEvent(eventId, userId);
+        } else if ("NEXT_TRACK".equals(command) || "SKIP_TRACK".equals(command)) {
+            log.info("User {} requesting to skip/advance track for event {}", userId, eventId);
+            playbackService.skipTrack(eventId, userId);
         } else {
             // All other commands (PAUSE, STOP, SEEK, PLAY) are ignored
             // The server is the sole controller of playback

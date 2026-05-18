@@ -35,6 +35,11 @@ public interface PlaybackService {
     void stopEvent(UUID eventId);
 
     /**
+     * Skip the currently playing track and advance to the next track.
+     */
+    void skipTrack(UUID eventId, UUID userId);
+
+    /**
      * Get rich playback status including isPlaying and positionMs.
      */
     java.util.Map<String, Object> getPlaybackStatus(UUID eventId);

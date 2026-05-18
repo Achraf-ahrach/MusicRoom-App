@@ -36,6 +36,7 @@ public class PlaybackServiceImpl implements PlaybackService {
     private final EventRepository eventRepo;
     private final EventPlaylistRepository playlistRepo;
     private final VoteRepository voteRepo;
+    private final EventInviteRepository inviteRepo;
     private final SimpMessagingTemplate messagingTemplate;
 
     private final ScheduledExecutorService scheduler =
@@ -65,8 +66,12 @@ public class PlaybackServiceImpl implements PlaybackService {
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
         // Only owner or editor can start the event
-        if (!event.getOwner().getId().equals(userId)) {
-            throw new UnauthorizedException("Only the event owner can start playback");
+        boolean isOwner = event.getOwner().getId().equals(userId);
+        if (!isOwner) {
+            Optional<EventInvite> inviteOpt = inviteRepo.findByEventIdAndUserId(eventId, userId);
+            if (inviteOpt.isEmpty() || !"admin".equalsIgnoreCase(inviteOpt.get().getRole())) {
+                throw new UnauthorizedException("Only the event owner or editors can start playback");
+            }
         }
 
         if (activeEvents.contains(eventId)) {
@@ -300,6 +305,31 @@ public class PlaybackServiceImpl implements PlaybackService {
             messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playlist", message);
         } catch (Exception e) {
             log.error("Error broadcasting playlist update for event {}", eventId, e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void skipTrack(UUID eventId, UUID userId) {
+        Event event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        // Only owner or editor can skip tracks
+        boolean isOwner = event.getOwner().getId().equals(userId);
+        if (!isOwner) {
+            Optional<EventInvite> inviteOpt = inviteRepo.findByEventIdAndUserId(eventId, userId);
+            if (inviteOpt.isEmpty() || !"admin".equalsIgnoreCase(inviteOpt.get().getRole())) {
+                throw new UnauthorizedException("Only the event owner or editors can skip tracks");
+            }
+        }
+
+        UUID currentEntryId = currentlyPlaying.get(eventId);
+        if (currentEntryId != null) {
+            log.info("Client user {} requested skip for event {} (current track: {})", userId, eventId, currentEntryId);
+            advanceTrack(eventId, currentEntryId);
+        } else {
+            log.info("Client user {} requested skip for event {} but no track currently playing, advancing automatically", userId, eventId);
+            playNextTrack(eventId);
         }
     }
 
