@@ -11,6 +11,7 @@ import '../services/audius_service.dart';
 import 'manage_delegations_screen.dart';
 import 'invite_friends_screen.dart';
 import 'event_settings_screen.dart';
+import '../widgets/audio_player_overlay.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -203,6 +204,53 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               }
             },
           );
+
+          // Subscribe to playback synchronization topic
+          _stompClient?.subscribe(
+            destination: '/topic/event/${widget.eventId}/playback',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                try {
+                  final data = jsonDecode(frame.body!);
+                  final String trackId = data['trackId']?.toString() ?? '';
+                  final String title = data['title'] ?? '';
+                  final String artistName = data['artist'] ?? '';
+                  final String imageUrl = data['coverUrl'] ?? '';
+                  final String audioUrl = data['audioUrl'] ?? '';
+
+                  final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+
+                  // Prevent looping/stuttering if already playing this track
+                  if (audioProvider.currentTrack?.id == trackId && audioProvider.isPlaying) {
+                    return;
+                  }
+
+                  final receivedTrack = Track(
+                    id: trackId,
+                    title: title,
+                    artistName: artistName,
+                    imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
+                    audioUrl: audioUrl.isNotEmpty ? audioUrl : null,
+                  );
+
+                  audioProvider.playTrack(receivedTrack);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                      content: Text(
+                        'Host started: "$title" by $artistName',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  debugPrint('Error parsing playback event: $e');
+                }
+              }
+            },
+          );
         },
         stompConnectHeaders: {
           'Authorization': 'Bearer $token',
@@ -276,6 +324,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   void dispose() {
     _stompClient?.deactivate();
+    try {
+      Provider.of<AudioProvider>(context, listen: false).stop();
+    } catch (e) {
+      debugPrint('Error stopping audio on dispose: \$e');
+    }
     super.dispose();
   }
 
@@ -656,34 +709,103 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Add Music Suggest Button (Only visible for owner / editor roles, not viewers)
+                        // Add Music Suggest Button & Start Event Button (Only visible for owner / editor roles, not viewers)
                         if (_userRole != 'viewer') ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(24),
+                          Consumer<AudioProvider>(
+                            builder: (context, audioProvider, child) {
+                              final hasTracks = _tracks.isNotEmpty;
+                              final firstTrack = hasTracks ? Track.fromPlaylistTrackJson(_tracks[0]) : null;
+                              final isCurrent = firstTrack != null && audioProvider.currentTrack?.id == firstTrack.id;
+                              final isPlaying = isCurrent && audioProvider.isPlaying;
+
+                              return Row(
+                                children: [
+                                  if (_userRole == 'owner') ...[
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: isPlaying ? Colors.amber[800] : Colors.blueAccent,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(24),
+                                          ),
+                                          elevation: 4,
+                                        ),
+                                        icon: Icon(
+                                          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                          size: 22,
+                                        ),
+                                        label: Text(
+                                          isPlaying ? 'Pause Event' : 'Start Event',
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                        onPressed: !hasTracks
+                                            ? null
+                                            : () {
+                                                if (isPlaying) {
+                                                  audioProvider.togglePlayPause();
+                                                } else {
+                                                  if (firstTrack != null) {
+                                                    audioProvider.playTrack(firstTrack);
+
+                                                    // Broadcast it via WebSocket
+                                                    if (_stompClient != null && _isWsConnected) {
+                                                      final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
+                                                      final suggestedByMap = _tracks[0]['suggestedBy'] as Map?;
+                                                      final suggestedByName = suggestedByMap?['displayName']?.toString() ?? '';
+
+                                                      final payload = {
+                                                        'trackId': firstTrack.id,
+                                                        'title': firstTrack.title,
+                                                        'artist': firstTrack.artistName,
+                                                        'coverUrl': firstTrack.imageUrl ?? '',
+                                                        'audioUrl': firstTrack.audioUrl ?? '',
+                                                        'suggestedByName': suggestedByName,
+                                                      };
+                                                      _stompClient?.send(
+                                                        destination: '/app/event/${widget.eventId}/playback',
+                                                        body: jsonEncode(payload),
+                                                        headers: token != null ? {'Authorization': 'Bearer $token'} : null,
+                                                      );
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                      ),
                                     ),
-                                    elevation: 4,
-                                  ),
-                                  icon: const Icon(Icons.add_rounded, size: 22),
-                                  label: const Text(
-                                    'Suggest Music',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.2,
+                                    const SizedBox(width: 12),
+                                  ],
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(24),
+                                        ),
+                                        elevation: 4,
+                                      ),
+                                      icon: const Icon(Icons.add_rounded, size: 22),
+                                      label: const Text(
+                                        'Suggest Music',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                      onPressed: _showAddTrackSheet,
                                     ),
                                   ),
-                                  onPressed: _showAddTrackSheet,
-                                ),
-                              ),
-                            ],
+                                ],
+                              );
+                            },
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -787,176 +909,176 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                           final track = Track.fromPlaylistTrackJson(entry);
 
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.05),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                // Rank Number
-                                Container(
-                                  width: 24,
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                      color: index == 0 ? Colors.greenAccent : Colors.white70,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
+                          return Consumer<AudioProvider>(
+                            builder: (context, audioProvider, child) {
+                              final isCurrent = audioProvider.currentTrack?.id == track.id;
+                              final isPlaying = isCurrent && audioProvider.isPlaying;
+
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.05),
+                                    width: 1,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-
-                                // Album Art
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: coverUrl.isNotEmpty
-                                      ? Image.network(
-                                          coverUrl,
-                                          width: 50,
-                                          height: 50,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) =>
-                                              Container(
-                                            color: Colors.grey[900],
-                                            width: 50,
-                                            height: 50,
-                                            child: const Icon(Icons.music_note, color: Colors.grey),
-                                          ),
-                                        )
-                                      : Container(
-                                          color: Colors.grey[900],
-                                          width: 50,
-                                          height: 50,
-                                          child: const Icon(Icons.music_note, color: Colors.grey),
-                                        ),
-                                ),
-                                const SizedBox(width: 12),
-
-                                // Title and Artist
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        title,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        artist,
-                                        style: TextStyle(
-                                          color: Colors.grey[400],
-                                          fontSize: 12,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (suggestedByName.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Suggested by $suggestedByName',
-                                          style: const TextStyle(
-                                            color: Colors.greenAccent,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                      if (upvoters.isNotEmpty || downvoters.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Votes: ${upvoters.isNotEmpty ? '▲ ${upvoters.join(', ')}' : ''}${upvoters.isNotEmpty && downvoters.isNotEmpty ? '  ' : ''}${downvoters.isNotEmpty ? '▼ ${downvoters.join(', ')}' : ''}',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.5),
-                                            fontSize: 10,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-
-                                // Play button (Only for Editor/Owner, hidden for viewers)
-                                if (_userRole != 'viewer')
-                                  IconButton(
-                                    icon: const Icon(Icons.play_arrow_rounded, color: Colors.white70),
-                                    onPressed: () {
-                                      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-                                      audioProvider.playTrack(track);
-                                    },
-                                  ),
-
-                                // Voting Widget
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                child: Row(
                                   children: [
-                                    // Downvote
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.arrow_downward_rounded,
-                                        size: 20,
-                                        color: hasDownvoted ? Colors.redAccent : Colors.grey,
-                                      ),
-                                      onPressed: () => _sendVote(entryId, -1),
-                                    ),
-
-                                    // Vote Count Bold pill
+                                    // Rank Number or Active playing volume icon
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: voteCount > 0
-                                            ? Colors.green.withOpacity(0.2)
-                                            : (voteCount < 0
-                                                ? Colors.red.withOpacity(0.2)
-                                                : Colors.white.withOpacity(0.1)),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        voteCount > 0 ? '+$voteCount' : '$voteCount',
-                                        style: TextStyle(
-                                          color: voteCount > 0
-                                              ? Colors.greenAccent
-                                              : (voteCount < 0
-                                                  ? Colors.redAccent
-                                                  : Colors.white70),
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 12,
-                                        ),
+                                      width: 24,
+                                      alignment: Alignment.center,
+                                      child: isPlaying
+                                          ? const Icon(Icons.volume_up_rounded, color: Colors.greenAccent, size: 18)
+                                          : Text(
+                                              '${index + 1}',
+                                              style: TextStyle(
+                                                color: index == 0 ? Colors.greenAccent : Colors.white70,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 8),
+
+                                    // Album Art
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: coverUrl.isNotEmpty
+                                          ? Image.network(
+                                              coverUrl,
+                                              width: 50,
+                                              height: 50,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  Container(
+                                                color: Colors.grey[900],
+                                                width: 50,
+                                                height: 50,
+                                                child: const Icon(Icons.music_note, color: Colors.grey),
+                                              ),
+                                            )
+                                          : Container(
+                                              color: Colors.grey[900],
+                                              width: 50,
+                                              height: 50,
+                                              child: const Icon(Icons.music_note, color: Colors.grey),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+
+                                    // Title and Artist
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            title,
+                                            style: TextStyle(
+                                              color: isPlaying ? Colors.greenAccent : Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            artist,
+                                            style: TextStyle(
+                                              color: Colors.grey[400],
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (suggestedByName.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Suggested by $suggestedByName',
+                                              style: const TextStyle(
+                                                color: Colors.greenAccent,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                          if (index > 0 && (upvoters.isNotEmpty || downvoters.isNotEmpty)) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Votes: ${upvoters.isNotEmpty ? '▲ ${upvoters.join(', ')}' : ''}${upvoters.isNotEmpty && downvoters.isNotEmpty ? '  ' : ''}${downvoters.isNotEmpty ? '▼ ${downvoters.join(', ')}' : ''}',
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(0.5),
+                                                fontSize: 10,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
 
-                                    // Upvote
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.arrow_upward_rounded,
-                                        size: 20,
-                                        color: hasUpvoted ? Colors.greenAccent : Colors.white70,
+                                    // Voting Widget (Only visible from position 2 and above, i.e., index > 0)
+                                    if (index > 0)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Downvote
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.arrow_downward_rounded,
+                                              size: 20,
+                                              color: hasDownvoted ? Colors.redAccent : Colors.grey,
+                                            ),
+                                            onPressed: () => _sendVote(entryId, -1),
+                                          ),
+
+                                          // Vote Count Bold pill
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: voteCount > 0
+                                                  ? Colors.green.withOpacity(0.2)
+                                                  : (voteCount < 0
+                                                      ? Colors.red.withOpacity(0.2)
+                                                      : Colors.white.withOpacity(0.1)),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              voteCount > 0 ? '+$voteCount' : '$voteCount',
+                                              style: TextStyle(
+                                                color: voteCount > 0
+                                                    ? Colors.greenAccent
+                                                    : (voteCount < 0
+                                                        ? Colors.redAccent
+                                                        : Colors.white70),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Upvote
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.arrow_upward_rounded,
+                                              size: 20,
+                                              color: hasUpvoted ? Colors.greenAccent : Colors.white70,
+                                            ),
+                                            onPressed: () => _sendVote(entryId, 1),
+                                          ),
+                                        ],
                                       ),
-                                      onPressed: () => _sendVote(entryId, 1),
-                                    ),
                                   ],
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           );
                         },
                         childCount: _tracks.length,

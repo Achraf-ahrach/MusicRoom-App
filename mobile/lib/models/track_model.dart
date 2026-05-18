@@ -43,7 +43,7 @@ class Track {
   }
 
   factory Track.fromPlaylistTrackJson(Map<String, dynamic> json) {
-    final String? externalId = json['externalId']?.toString();
+    final String? externalId = json['externalId']?.toString() ?? json['external_id']?.toString();
     final String? fallbackStreamUrl = externalId != null && externalId.isNotEmpty
         ? 'https://discoveryprovider.audius.co/v1/tracks/$externalId/stream?app_name=MusicRoomApp'
         : null;

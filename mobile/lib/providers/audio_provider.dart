@@ -62,13 +62,17 @@ class AudioProvider extends ChangeNotifier {
       _currentIndex = 0;
     }
 
+    debugPrint("--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}");
+
     if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
       try {
         await _audioPlayer.setUrl(track.audioUrl!);
         _audioPlayer.play();
       } catch (e) {
-        print("Error playing audio: \$e");
+        debugPrint("Error playing audio: \$e");
       }
+    } else {
+      debugPrint("--- AudioProvider.playTrack: ERROR: track.audioUrl is empty or null!");
     }
     notifyListeners();
   }
@@ -78,6 +82,20 @@ class AudioProvider extends ChangeNotifier {
       await _audioPlayer.pause();
     } else {
       await _audioPlayer.play();
+    }
+  }
+
+  Future<void> stop() async {
+    try {
+      await _audioPlayer.stop();
+      _playlist = [];
+      _currentIndex = -1;
+      _isPlaying = false;
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error stopping audio: \$e");
     }
   }
 

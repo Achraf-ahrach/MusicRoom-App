@@ -15,5 +15,6 @@ public class PlaylistEntryDto {
     private String status;
     private UUID suggestedById;
     private String suggestedByName;
+    private String externalId;
     private java.util.List<VoteDto> votedUsers;
 }

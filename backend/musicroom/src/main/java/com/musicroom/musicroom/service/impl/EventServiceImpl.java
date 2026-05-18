@@ -416,6 +416,7 @@ public class EventServiceImpl implements EventService {
                 .status(entry.getStatus())
                 .suggestedById(entry.getSuggestedBy() != null ? entry.getSuggestedBy().getId() : null)
                 .suggestedByName(entry.getSuggestedBy() != null ? entry.getSuggestedBy().getDisplayName() : null)
+                .externalId(entry.getTrack().getExternalId())
                 .votedUsers(votedList)
                 .build();
     }
