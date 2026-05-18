@@ -153,17 +153,42 @@ public class PlaybackServiceImpl implements PlaybackService {
         try {
             List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
 
-            // Sort: first track stays first (oldest), rest sorted by votes desc
-            if (entries.size() > 1) {
-                List<EventPlaylistEntry> rest = new ArrayList<>(entries.subList(1, entries.size()));
-                rest.sort((a, b) -> {
-                    int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
-                    if (voteCompare != 0) return voteCompare;
-                    return a.getSuggestedAt().compareTo(b.getSuggestedAt());
-                });
-                entries = new ArrayList<>();
-                entries.add(playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId).get(0));
-                entries.addAll(rest);
+            // Robust sort logic:
+            if (!entries.isEmpty()) {
+                UUID currentPlayingId = currentlyPlaying.get(eventId);
+                if (currentPlayingId != null) {
+                    // A track is currently playing. Keep it at index 0.
+                    EventPlaylistEntry playingEntry = null;
+                    List<EventPlaylistEntry> remaining = new ArrayList<>();
+                    for (EventPlaylistEntry entry : entries) {
+                        if (entry.getId().equals(currentPlayingId)) {
+                            playingEntry = entry;
+                        } else {
+                            remaining.add(entry);
+                        }
+                    }
+
+                    // Sort remaining by votes desc, then suggestedAt asc
+                    remaining.sort((a, b) -> {
+                        int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                        if (voteCompare != 0) return voteCompare;
+                        return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+                    });
+
+                    entries = new ArrayList<>();
+                    if (playingEntry != null) {
+                        entries.add(playingEntry);
+                    }
+                    entries.addAll(remaining);
+                } else {
+                    // No track is currently playing. Sort the ENTIRE list by votes desc, then suggestedAt asc
+                    entries = new ArrayList<>(entries);
+                    entries.sort((a, b) -> {
+                        int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                        if (voteCompare != 0) return voteCompare;
+                        return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+                    });
+                }
             }
 
             if (entries.isEmpty()) {
@@ -263,6 +288,9 @@ public class PlaybackServiceImpl implements PlaybackService {
                 playlistRepo.flush();
                 log.info("Event {} removed finished track {}", eventId, finishedEntryId);
 
+                // Clear the currently playing map for this event since it finished
+                currentlyPlaying.remove(eventId);
+
                 // Broadcast the updated playlist
                 broadcastPlaylistUpdate(eventId);
             }
@@ -283,14 +311,42 @@ public class PlaybackServiceImpl implements PlaybackService {
     private void broadcastPlaylistUpdate(UUID eventId) {
         try {
             List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
-            if (entries.size() > 1) {
-                entries.subList(1, entries.size()).sort((a, b) -> {
-                    int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
-                    if (voteCompare != 0) return voteCompare;
-                    java.time.LocalDateTime aTime = a.getSuggestedAt() != null ? a.getSuggestedAt() : java.time.LocalDateTime.MIN;
-                    java.time.LocalDateTime bTime = b.getSuggestedAt() != null ? b.getSuggestedAt() : java.time.LocalDateTime.MIN;
-                    return aTime.compareTo(bTime);
-                });
+            UUID currentPlayingId = currentlyPlaying.get(eventId);
+            if (!entries.isEmpty()) {
+                if (currentPlayingId != null) {
+                    EventPlaylistEntry playingEntry = null;
+                    List<EventPlaylistEntry> remaining = new ArrayList<>();
+                    for (EventPlaylistEntry entry : entries) {
+                        if (entry.getId().equals(currentPlayingId)) {
+                            playingEntry = entry;
+                        } else {
+                            remaining.add(entry);
+                        }
+                    }
+
+                    remaining.sort((a, b) -> {
+                        int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                        if (voteCompare != 0) return voteCompare;
+                        java.time.LocalDateTime aTime = a.getSuggestedAt() != null ? a.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                        java.time.LocalDateTime bTime = b.getSuggestedAt() != null ? b.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                        return aTime.compareTo(bTime);
+                    });
+
+                    entries = new ArrayList<>();
+                    if (playingEntry != null) {
+                        entries.add(playingEntry);
+                    }
+                    entries.addAll(remaining);
+                } else {
+                    entries = new ArrayList<>(entries);
+                    entries.sort((a, b) -> {
+                        int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                        if (voteCompare != 0) return voteCompare;
+                        java.time.LocalDateTime aTime = a.getSuggestedAt() != null ? a.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                        java.time.LocalDateTime bTime = b.getSuggestedAt() != null ? b.getSuggestedAt() : java.time.LocalDateTime.MIN;
+                        return aTime.compareTo(bTime);
+                    });
+                }
             }
 
             List<PlaylistEntryDto> playlist = new ArrayList<>();
