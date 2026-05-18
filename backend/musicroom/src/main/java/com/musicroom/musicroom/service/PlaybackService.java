@@ -37,7 +37,7 @@ public interface PlaybackService {
     /**
      * Skip the currently playing track and advance to the next track.
      */
-    void skipTrack(UUID eventId, UUID userId);
+    void skipTrack(UUID eventId, UUID userId, String clientTrackId);
 
     /**
      * Get rich playback status including isPlaying and positionMs.

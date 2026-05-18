@@ -310,7 +310,7 @@ public class PlaybackServiceImpl implements PlaybackService {
 
     @Override
     @Transactional
-    public void skipTrack(UUID eventId, UUID userId) {
+    public void skipTrack(UUID eventId, UUID userId, String clientTrackId) {
         Event event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
@@ -325,6 +325,19 @@ public class PlaybackServiceImpl implements PlaybackService {
 
         UUID currentEntryId = currentlyPlaying.get(eventId);
         if (currentEntryId != null) {
+            // Idempotency check: if client specified a trackId, make sure it matches the server's currently playing track's external ID!
+            if (clientTrackId != null && !clientTrackId.trim().isEmpty()) {
+                Optional<EventPlaylistEntry> entryOpt = playlistRepo.findById(currentEntryId);
+                if (entryOpt.isPresent()) {
+                    String serverTrackExternalId = entryOpt.get().getTrack().getExternalId();
+                    if (!clientTrackId.equals(serverTrackExternalId)) {
+                        log.info("Event {} skip request ignored: client requested to skip trackId '{}' but server is already playing '{}'",
+                                eventId, clientTrackId, serverTrackExternalId);
+                        return;
+                    }
+                }
+            }
+
             log.info("Client user {} requested skip for event {} (current track: {})", userId, eventId, currentEntryId);
             advanceTrack(eventId, currentEntryId);
         } else {

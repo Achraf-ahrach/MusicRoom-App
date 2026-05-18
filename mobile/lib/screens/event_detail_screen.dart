@@ -237,7 +237,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           context,
           listen: false,
         ).currentUser?.accessToken;
-        final payload = {'command': 'NEXT_TRACK'};
+        final payload = {
+          'command': 'NEXT_TRACK',
+          'trackId': _audioProvider.currentTrack?.id,
+        };
         _stompClient?.send(
           destination: '/app/event/${widget.eventId}/playback',
           body: jsonEncode(payload),
