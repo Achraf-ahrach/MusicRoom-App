@@ -50,21 +50,33 @@ class AudioPlayerOverlay extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 32),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white,
+                            size: 32,
+                          ),
                           onPressed: () => audioProvider.minimizePlayer(),
                         ),
                         const Text(
                           "Now Playing",
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.more_vert, color: Colors.white),
+                          icon: const Icon(
+                            Icons.more_vert,
+                            color: Colors.white,
+                          ),
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (context) => AddToPlaylistModal(track: track),
+                              builder: (context) =>
+                                  AddToPlaylistModal(track: track),
                             );
                           },
                         ),
@@ -83,35 +95,70 @@ class AudioPlayerOverlay extends StatelessWidget {
                                       tag: 'trackThumbnail',
                                       child: Image.network(
                                         track.imageUrl!,
-                                        width: MediaQuery.of(context).size.width * 0.8,
-                                        height: MediaQuery.of(context).size.width * 0.8,
+                                        width:
+                                            MediaQuery.of(context).size.width *
+                                            0.8,
+                                        height:
+                                            MediaQuery.of(context).size.width *
+                                            0.8,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Container(
-                                          width: MediaQuery.of(context).size.width * 0.8,
-                                          height: MediaQuery.of(context).size.width * 0.8,
-                                          color: Colors.grey[800],
-                                          child: const Icon(Icons.music_note, color: Colors.grey, size: 100),
-                                        ),
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                                  width:
+                                                      MediaQuery.of(
+                                                        context,
+                                                      ).size.width *
+                                                      0.8,
+                                                  height:
+                                                      MediaQuery.of(
+                                                        context,
+                                                      ).size.width *
+                                                      0.8,
+                                                  color: Colors.grey[800],
+                                                  child: const Icon(
+                                                    Icons.music_note,
+                                                    color: Colors.grey,
+                                                    size: 100,
+                                                  ),
+                                                ),
                                       ),
                                     )
                                   : Container(
-                                      width: MediaQuery.of(context).size.width * 0.8,
-                                      height: MediaQuery.of(context).size.width * 0.8,
+                                      width:
+                                          MediaQuery.of(context).size.width *
+                                          0.8,
+                                      height:
+                                          MediaQuery.of(context).size.width *
+                                          0.8,
                                       color: Colors.grey[800],
-                                      child: const Icon(Icons.music_note, color: Colors.grey, size: 100),
+                                      child: const Icon(
+                                        Icons.music_note,
+                                        color: Colors.grey,
+                                        size: 100,
+                                      ),
                                     ),
                             ),
                             const SizedBox(height: 24),
                             Text(
                               track.title,
-                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 8),
                             Text(
                               track.artistName,
-                              style: const TextStyle(color: Colors.grey, fontSize: 18),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 18,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 24),
                           ],
@@ -126,59 +173,89 @@ class AudioPlayerOverlay extends StatelessWidget {
                           Slider(
                             activeColor: Colors.white,
                             inactiveColor: Colors.grey.withOpacity(0.5),
-                            value: audioProvider.position.inSeconds.toDouble().clamp(0.0, audioProvider.duration.inSeconds.toDouble() > 0 ? audioProvider.duration.inSeconds.toDouble() : 1.0),
-                            max: audioProvider.duration.inSeconds.toDouble() > 0 ? audioProvider.duration.inSeconds.toDouble() : 1.0,
-                            onChanged: audioProvider.isLiveEvent ? null : (val) {
-                              audioProvider.seek(Duration(seconds: val.toInt()));
-                            },
+                            value: audioProvider.position.inSeconds
+                                .toDouble()
+                                .clamp(
+                                  0.0,
+                                  audioProvider.duration.inSeconds.toDouble() >
+                                          0
+                                      ? audioProvider.duration.inSeconds
+                                            .toDouble()
+                                      : 1.0,
+                                ),
+                            max: audioProvider.duration.inSeconds.toDouble() > 0
+                                ? audioProvider.duration.inSeconds.toDouble()
+                                : 1.0,
+                            onChanged: audioProvider.isLiveEvent
+                                ? null
+                                : (val) {
+                                    audioProvider.seek(
+                                      Duration(seconds: val.toInt()),
+                                    );
+                                  },
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   _formatDuration(audioProvider.position),
-                                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
                                 ),
                                 Text(
                                   _formatDuration(audioProvider.duration),
-                                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           if (audioProvider.isLiveEvent) ...[
                             const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(color: Colors.greenAccent, width: 1.5),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.greenAccent,
-                                      shape: BoxShape.circle,
-                                    ),
+                            InkWell(
+                              onTap: audioProvider.onSyncPlayback,
+                              borderRadius: BorderRadius.circular(30),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
+                                    color: Colors.greenAccent,
+                                    width: 1.5,
                                   ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    "LIVE ROOM PLAYBACK",
-                                    style: TextStyle(
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.sync_rounded,
                                       color: Colors.greenAccent,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.0,
+                                      size: 18,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      "LIVE - TAP TO SYNC",
+                                      style: TextStyle(
+                                        color: Colors.greenAccent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -188,25 +265,39 @@ class AudioPlayerOverlay extends StatelessWidget {
                               children: [
                                 IconButton(
                                   iconSize: 48,
-                                  icon: const Icon(Icons.skip_previous, color: Colors.white),
-                                  onPressed: () => audioProvider.previousTrack(),
+                                  icon: const Icon(
+                                    Icons.skip_previous,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () =>
+                                      audioProvider.previousTrack(),
                                 ),
                                 const SizedBox(width: 20),
                                 IconButton(
                                   iconSize: 64,
-                                  icon: Icon(audioProvider.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white),
-                                  onPressed: () => audioProvider.togglePlayPause(),
+                                  icon: Icon(
+                                    audioProvider.isPlaying
+                                        ? Icons.pause_circle_filled
+                                        : Icons.play_circle_filled,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () =>
+                                      audioProvider.togglePlayPause(),
                                 ),
                                 const SizedBox(width: 20),
                                 IconButton(
                                   iconSize: 48,
-                                  icon: const Icon(Icons.skip_next, color: Colors.white),
+                                  icon: const Icon(
+                                    Icons.skip_next,
+                                    color: Colors.white,
+                                  ),
                                   onPressed: () => audioProvider.nextTrack(),
                                 ),
                               ],
                             ),
                           ],
-                          if (track.description != null && track.description!.isNotEmpty) ...[
+                          if (track.description != null &&
+                              track.description!.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Container(
                               width: double.infinity,
@@ -218,11 +309,21 @@ class AudioPlayerOverlay extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text("Description", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                  const Text(
+                                    "Description",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     track.description!,
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
                                     maxLines: 3,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -258,51 +359,89 @@ class AudioPlayerOverlay extends StatelessWidget {
                 children: [
                   const SizedBox(width: 8),
                   if (track.imageUrl != null)
-                    Hero(tag: 'trackThumbnail', child: Image.network(
-                      track.imageUrl!, 
-                      width: 44, 
-                      height: 44, 
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 44, height: 44, color: Colors.grey[800],
-                        child: const Icon(Icons.music_note, color: Colors.grey, size: 24),
+                    Hero(
+                      tag: 'trackThumbnail',
+                      child: Image.network(
+                        track.imageUrl!,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 44,
+                          height: 44,
+                          color: Colors.grey[800],
+                          child: const Icon(
+                            Icons.music_note,
+                            color: Colors.grey,
+                            size: 24,
+                          ),
+                        ),
                       ),
-                    )),
+                    ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(track.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Text(track.artistName, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                          track.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          track.artistName,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
                   ),
                   if (audioProvider.isLiveEvent)
-                    Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.greenAccent, width: 1),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.sensors_rounded, color: Colors.greenAccent, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            "LIVE",
-                            style: TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
+                    GestureDetector(
+                      onTap: audioProvider.onSyncPlayback,
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: Colors.greenAccent,
+                            width: 1,
                           ),
-                        ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.sync_rounded,
+                              color: Colors.greenAccent,
+                              size: 14,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              "SYNC",
+                              style: TextStyle(
+                                color: Colors.greenAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   else
@@ -310,11 +449,19 @@ class AudioPlayerOverlay extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: Icon(audioProvider.isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                          icon: Icon(
+                            audioProvider.isPlaying
+                                ? Icons.pause
+                                : Icons.play_arrow,
+                            color: Colors.white,
+                          ),
                           onPressed: () => audioProvider.togglePlayPause(),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.skip_next, color: Colors.white),
+                          icon: const Icon(
+                            Icons.skip_next,
+                            color: Colors.white,
+                          ),
                           onPressed: () => audioProvider.nextTrack(),
                         ),
                       ],

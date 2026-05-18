@@ -40,6 +40,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Map<String, dynamic>? _eventDetails;
   String _userRole = 'none'; // 'editor' | 'viewer' | 'none'
   bool _allowed = false;
+  bool _isLocked = false;
   String _visibility = 'public';
   List<Map<String, dynamic>> _tracks = [];
 
@@ -57,6 +58,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    _audioProvider.onSyncPlayback = _syncLivePlayback;
   }
 
   @override
@@ -81,10 +83,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       }
 
       // 1. Fetch user role and permission
-      final roleData = await _eventService.getEventUserRole(widget.eventId, token);
-      _userRole = roleData['role'] ?? 'none';
-      _allowed = roleData['allowed'] ?? false;
-      _visibility = roleData['visibility'] ?? 'public';
+      final roleData = await _eventService.getEventUserRole(
+        widget.eventId,
+        token,
+      );
+      setState(() {
+        _userRole = roleData['role'] ?? 'none';
+        _allowed = roleData['allowed'] ?? false;
+        _visibility = roleData['visibility'] ?? 'public';
+        _isLocked = roleData['locked'] ?? false;
+      });
 
       if (!_allowed) {
         setState(() {
@@ -95,12 +103,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
       // 2. Fetch event details & playlist
       final details = await _eventService.getEventById(widget.eventId, token);
-      final playlist = await _eventService.getEventPlaylist(widget.eventId, token);
+      final playlist = await _eventService.getEventPlaylist(
+        widget.eventId,
+        token,
+      );
 
       bool isPlaying = false;
       int seekToMs = 0;
       try {
-        final playbackStatus = await _eventService.getPlaybackStatus(widget.eventId, token);
+        final playbackStatus = await _eventService.getPlaybackStatus(
+          widget.eventId,
+          token,
+        );
         isPlaying = playbackStatus['isPlaying'] ?? false;
         seekToMs = playbackStatus['positionMs'] as int? ?? 0;
       } catch (e) {
@@ -116,9 +130,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
       if (isPlaying && playlist.isNotEmpty) {
         final firstTrack = Track.fromPlaylistTrackJson(playlist[0]);
-        final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-        if (audioProvider.currentTrack?.id != firstTrack.id || !audioProvider.isPlaying) {
-          audioProvider.playTrack(firstTrack, isLiveEvent: true, seekToMs: seekToMs);
+        final audioProvider = Provider.of<AudioProvider>(
+          context,
+          listen: false,
+        );
+        if (audioProvider.currentTrack?.id != firstTrack.id ||
+            !audioProvider.isPlaying) {
+          audioProvider.playTrack(
+            firstTrack,
+            isLiveEvent: true,
+            seekToMs: seekToMs,
+          );
         }
       }
 
@@ -130,9 +152,68 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load event: $e')),
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load event: $e')));
+    }
+  }
+
+  Future<void> _syncLivePlayback() async {
+    final token = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).currentUser?.accessToken;
+    if (token == null) return;
+    try {
+      final playbackStatus = await _eventService.getPlaybackStatus(
+        widget.eventId,
+        token,
       );
+      final isPlaying = playbackStatus['isPlaying'] ?? false;
+      final seekToMs = playbackStatus['positionMs'] as int? ?? 0;
+
+      if (isPlaying && _tracks.isNotEmpty) {
+        final firstTrack = Track.fromPlaylistTrackJson(_tracks[0]);
+        final audioProvider = Provider.of<AudioProvider>(
+          context,
+          listen: false,
+        );
+
+        // Force play/seek to sync
+        await audioProvider.playTrack(
+          firstTrack,
+          isLiveEvent: true,
+          seekToMs: seekToMs,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.green,
+              content: Text(
+                'Synchronized with live room playback!',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.amber,
+              content: Text(
+                'No active live room playback found.',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error synchronizing live playback: $e');
     }
   }
 
@@ -142,7 +223,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final token = authProvider.currentUser?.accessToken;
       if (token == null) return;
 
-      final roleData = await _eventService.getEventUserRole(widget.eventId, token);
+      final roleData = await _eventService.getEventUserRole(
+        widget.eventId,
+        token,
+      );
       final newRole = roleData['role'] ?? 'none';
       final newAllowed = roleData['allowed'] ?? false;
       final newVisibility = roleData['visibility'] ?? 'public';
@@ -151,7 +235,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
       if (!newAllowed) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('You no longer have access to this event.')),
+          const SnackBar(
+            content: Text('You no longer have access to this event.'),
+          ),
         );
         Navigator.pop(context);
         return;
@@ -264,7 +350,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     setState(() {
                       _isEventPlaying = false;
                     });
-                    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                    final audioProvider = Provider.of<AudioProvider>(
+                      context,
+                      listen: false,
+                    );
                     audioProvider.stop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -283,15 +372,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     _isEventPlaying = true;
                   });
 
-                  final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                  final audioProvider = Provider.of<AudioProvider>(
+                    context,
+                    listen: false,
+                  );
 
-                  // Prevent looping/stuttering if already playing/loading this track
-                  if (audioProvider.currentTrack?.id == trackId) {
-                    if (!audioProvider.isPlaying) {
-                      audioProvider.playTrack(audioProvider.currentTrack!, isLiveEvent: true);
-                    }
+                  // Prevent looping/stuttering if already playing/loading this track as a live event
+                  if (audioProvider.currentTrack?.id == trackId &&
+                      audioProvider.isPlaying &&
+                      audioProvider.isLiveEvent) {
                     return;
                   }
+
+                  final int seekToMs = data['positionMs'] as int? ?? 0;
 
                   final receivedTrack = Track(
                     id: trackId,
@@ -301,7 +394,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     audioUrl: audioUrl.isNotEmpty ? audioUrl : null,
                   );
 
-                  audioProvider.playTrack(receivedTrack, isLiveEvent: true);
+                  audioProvider.playTrack(
+                    receivedTrack,
+                    isLiveEvent: true,
+                    seekToMs: seekToMs,
+                  );
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -320,12 +417,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             },
           );
         },
-        stompConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        },
-        webSocketConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        },
+        stompConnectHeaders: {'Authorization': 'Bearer $token'},
+        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
         onDisconnect: (frame) {
           debugPrint('STOMP disconnected');
           if (mounted) {
@@ -361,12 +454,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       return;
     }
 
-    final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
+    final token = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).currentUser?.accessToken;
 
-    final payload = {
-      'entryId': entryId,
-      'value': value,
-    };
+    final payload = {'entryId': entryId, 'value': value};
 
     _stompClient?.send(
       destination: '/app/event/${widget.eventId}/vote',
@@ -381,7 +474,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final token = authProvider.currentUser?.accessToken;
       if (token == null) return;
 
-      final playlist = await _eventService.getEventPlaylist(widget.eventId, token);
+      final playlist = await _eventService.getEventPlaylist(
+        widget.eventId,
+        token,
+      );
       if (mounted) {
         setState(() {
           _tracks = playlist;
@@ -396,6 +492,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   void dispose() {
     _stompClient?.deactivate();
     try {
+      _audioProvider.onSyncPlayback = null;
       _audioProvider.stop();
     } catch (e) {
       debugPrint('Error stopping audio on dispose: $e');
@@ -447,17 +544,32 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               const SizedBox(height: 16),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _eventService.getEventCollaborators(widget.eventId, token),
+                  future: _eventService.getEventCollaborators(
+                    widget.eventId,
+                    token,
+                  ),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: Colors.green));
+                      return const Center(
+                        child: CircularProgressIndicator(color: Colors.green),
+                      );
                     }
                     if (snapshot.hasError) {
-                      return const Center(child: Text('Error loading listeners', style: TextStyle(color: Colors.red)));
+                      return const Center(
+                        child: Text(
+                          'Error loading listeners',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      );
                     }
                     final listeners = snapshot.data ?? [];
                     if (listeners.isEmpty) {
-                      return const Center(child: Text('No listeners yet.', style: TextStyle(color: Colors.grey)));
+                      return const Center(
+                        child: Text(
+                          'No listeners yet.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
                     }
 
                     return ListView.builder(
@@ -471,14 +583,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: Colors.grey[800],
-                            backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                            child: avatarUrl.isEmpty ? const Icon(Icons.person, color: Colors.grey) : null,
+                            backgroundImage: avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child: avatarUrl.isEmpty
+                                ? const Icon(Icons.person, color: Colors.grey)
+                                : null,
                           ),
-                          title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          title: Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           subtitle: Text(
-                            role.toUpperCase(), 
+                            role.toUpperCase(),
                             style: TextStyle(
-                              color: role == 'owner' ? Colors.greenAccent : (role == 'editor' ? Colors.blueAccent : Colors.grey[400]), 
+                              color: role == 'owner'
+                                  ? Colors.greenAccent
+                                  : (role == 'editor'
+                                        ? Colors.blueAccent
+                                        : Colors.grey[400]),
                               fontSize: 12,
                             ),
                           ),
@@ -541,9 +667,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: AppTheme.background,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.green),
-        ),
+        body: Center(child: CircularProgressIndicator(color: Colors.green)),
       );
     }
 
@@ -552,7 +676,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
 
     final String eventName = _eventDetails?['name'] ?? widget.eventName;
-    final String description = _eventDetails?['description'] ?? 'No description provided';
+    final String description =
+        _eventDetails?['description'] ?? 'No description provided';
     final String ownerName = _eventDetails?['ownerName'] ?? 'Host';
     final String coverUrl = _eventDetails?['coverUrl'] ?? '';
 
@@ -585,10 +710,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               child: ShaderMask(
                 shaderCallback: (rect) {
                   return LinearGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.4),
-                      Colors.transparent,
-                    ],
+                    colors: [Colors.black.withOpacity(0.4), Colors.transparent],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ).createShader(rect);
@@ -597,7 +719,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 child: Image.network(
                   coverUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox(),
                 ),
               ),
             ),
@@ -645,14 +768,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       padding: const EdgeInsets.only(right: 16.0),
                       child: Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: _isWsConnected
                                 ? Colors.green.withOpacity(0.2)
                                 : Colors.orange.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _isWsConnected ? Colors.green : Colors.orange,
+                              color: _isWsConnected
+                                  ? Colors.green
+                                  : Colors.orange,
                               width: 1,
                             ),
                           ),
@@ -663,7 +791,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: _isWsConnected ? Colors.green : Colors.orange,
+                                  color: _isWsConnected
+                                      ? Colors.green
+                                      : Colors.orange,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -671,7 +801,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               Text(
                                 _isWsConnected ? 'LIVE' : 'CONNECTING',
                                 style: TextStyle(
-                                  color: _isWsConnected ? Colors.green : Colors.orange,
+                                  color: _isWsConnected
+                                      ? Colors.green
+                                      : Colors.orange,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -697,7 +829,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: _visibility == 'public'
                                     ? Colors.cyan.withOpacity(0.2)
@@ -707,7 +842,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               child: Text(
                                 _visibility.toUpperCase(),
                                 style: TextStyle(
-                                  color: _visibility == 'public' ? Colors.cyanAccent : Colors.redAccent,
+                                  color: _visibility == 'public'
+                                      ? Colors.cyanAccent
+                                      : Colors.redAccent,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -716,9 +853,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: (_userRole == 'editor' || _userRole == 'owner')
+                                color:
+                                    (_userRole == 'editor' ||
+                                        _userRole == 'owner')
                                     ? Colors.greenAccent.withOpacity(0.2)
                                     : Colors.purple.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
@@ -726,7 +868,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               child: Text(
                                 _userRole.toUpperCase(),
                                 style: TextStyle(
-                                  color: (_userRole == 'editor' || _userRole == 'owner') ? Colors.greenAccent : Colors.purpleAccent,
+                                  color:
+                                      (_userRole == 'editor' ||
+                                          _userRole == 'owner')
+                                      ? Colors.greenAccent
+                                      : Colors.purpleAccent,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -759,7 +905,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           onTap: _showListenersSheet,
                           child: Row(
                             children: [
-                              Icon(Icons.people_outline, color: Colors.grey[400], size: 16),
+                              Icon(
+                                Icons.people_outline,
+                                color: Colors.grey[400],
+                                size: 16,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 '${_eventDetails?['participantCount'] ?? 1} listeners in the room',
@@ -770,7 +920,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(Icons.chevron_right, color: Colors.grey[400], size: 16),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey[400],
+                                size: 16,
+                              ),
                             ],
                           ),
                         ),
@@ -783,70 +937,101 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Add Music Suggest Button & Start Event Button (Only visible for owner / editor roles, not viewers)
-                        if (_userRole != 'viewer') ...[
-                          Consumer<AudioProvider>(
-                            builder: (context, audioProvider, child) {
-                              final hasTracks = _tracks.isNotEmpty;
+                        // Add Music Suggest Button and Start Event Button
+                        Consumer<AudioProvider>(
+                          builder: (context, audioProvider, child) {
+                            final hasTracks = _tracks.isNotEmpty;
+                            final showStartButton =
+                                _userRole == 'owner' && !_isEventPlaying;
+                            final showSuggestButton = _userRole != 'viewer';
 
-                              return Row(
-                                children: [
-                                  if (_userRole == 'owner') ...[
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _isEventPlaying ? Colors.green.withOpacity(0.3) : Colors.blueAccent,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 14),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(24),
-                                          ),
-                                          elevation: 4,
+                            // If no buttons are visible for this role/state, don't show the row
+                            if (!showStartButton && !showSuggestButton) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Row(
+                              children: [
+                                if (showStartButton) ...[
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueAccent,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
                                         ),
-                                        icon: Icon(
-                                          _isEventPlaying ? Icons.sensors_rounded : Icons.play_arrow_rounded,
-                                          size: 22,
-                                          color: _isEventPlaying ? Colors.greenAccent : Colors.white,
-                                        ),
-                                        label: Text(
-                                          _isEventPlaying ? 'Event is Live' : 'Start Event',
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.2,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            24,
                                           ),
                                         ),
-                                        onPressed: (_isEventPlaying || !hasTracks)
-                                            ? null
-                                            : () {
-                                                if (_stompClient != null && _isWsConnected) {
-                                                  final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
-                                                  final payload = {
-                                                    'command': 'START_EVENT',
-                                                  };
-                                                  _stompClient?.send(
-                                                    destination: '/app/event/${widget.eventId}/playback',
-                                                    body: jsonEncode(payload),
-                                                    headers: token != null ? {'Authorization': 'Bearer $token'} : null,
-                                                  );
-                                                }
-                                              },
+                                        elevation: 4,
                                       ),
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                        size: 22,
+                                        color: Colors.white,
+                                      ),
+                                      label: const Text(
+                                        'Start Event',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                      onPressed: !hasTracks
+                                          ? null
+                                          : () {
+                                              if (_stompClient != null &&
+                                                  _isWsConnected) {
+                                                final token =
+                                                    Provider.of<AuthProvider>(
+                                                      context,
+                                                      listen: false,
+                                                    ).currentUser?.accessToken;
+                                                final payload = {
+                                                  'command': 'START_EVENT',
+                                                };
+                                                _stompClient?.send(
+                                                  destination:
+                                                      '/app/event/${widget.eventId}/playback',
+                                                  body: jsonEncode(payload),
+                                                  headers: token != null
+                                                      ? {
+                                                          'Authorization':
+                                                              'Bearer $token',
+                                                        }
+                                                      : null,
+                                                );
+                                              }
+                                            },
                                     ),
+                                  ),
+                                  if (showSuggestButton)
                                     const SizedBox(width: 12),
-                                  ],
+                                ],
+                                if (showSuggestButton) ...[
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.green,
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(24),
+                                          borderRadius: BorderRadius.circular(
+                                            24,
+                                          ),
                                         ),
                                         elevation: 4,
                                       ),
-                                      icon: const Icon(Icons.add_rounded, size: 22),
+                                      icon: const Icon(
+                                        Icons.add_rounded,
+                                        size: 22,
+                                      ),
                                       label: const Text(
                                         'Suggest Music',
                                         style: TextStyle(
@@ -859,11 +1044,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ),
                                   ),
                                 ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                        ],
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -877,21 +1062,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: _tracks.length >= 15
                                     ? Colors.redAccent.withOpacity(0.2)
                                     : Colors.green.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: _tracks.length >= 15 ? Colors.redAccent : Colors.green,
+                                  color: _tracks.length >= 15
+                                      ? Colors.redAccent
+                                      : Colors.green,
                                   width: 1,
                                 ),
                               ),
                               child: Text(
                                 '${_tracks.length}/15',
                                 style: TextStyle(
-                                  color: _tracks.length >= 15 ? Colors.redAccent : Colors.greenAccent,
+                                  color: _tracks.length >= 15
+                                      ? Colors.redAccent
+                                      : Colors.greenAccent,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -913,7 +1105,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.queue_music_rounded, color: Colors.grey, size: 48),
+                          Icon(
+                            Icons.queue_music_rounded,
+                            color: Colors.grey,
+                            size: 48,
+                          ),
                           SizedBox(height: 12),
                           Text(
                             'Queue is empty.',
@@ -932,246 +1128,318 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   SliverPadding(
                     padding: const EdgeInsets.only(bottom: 100),
                     sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final entry = _tracks[index];
-                          final String entryId = entry['id']?.toString() ?? '';
-                          final String title = entry['title'] ?? 'Unknown Title';
-                          final String artist = entry['artist'] ?? 'Unknown Artist';
-                          final String coverUrl = entry['coverUrl'] ?? '';
-                          final int voteCount = entry['voteCount'] ?? 0;
-                          final String suggestedByName = entry['suggestedByName'] ?? '';
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final entry = _tracks[index];
+                        final String entryId = entry['id']?.toString() ?? '';
+                        final String title = entry['title'] ?? 'Unknown Title';
+                        final String artist =
+                            entry['artist'] ?? 'Unknown Artist';
+                        final String coverUrl = entry['coverUrl'] ?? '';
+                        final int voteCount = entry['voteCount'] ?? 0;
+                        final String suggestedByName =
+                            entry['suggestedByName'] ?? '';
 
-                          final votedList = entry['votedUsers'] as List<dynamic>? ?? [];
-                          final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
-                          int userVoteVal = 0;
-                          for (var voteObj in votedList) {
-                            if (voteObj is Map && voteObj['userId']?.toString() == currentUserId) {
-                              userVoteVal = voteObj['value'] as int? ?? 0;
-                            }
+                        final votedList =
+                            entry['votedUsers'] as List<dynamic>? ?? [];
+                        final currentUserId = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        ).currentUser?.id;
+                        int userVoteVal = 0;
+                        for (var voteObj in votedList) {
+                          if (voteObj is Map &&
+                              voteObj['userId']?.toString() == currentUserId) {
+                            userVoteVal = voteObj['value'] as int? ?? 0;
                           }
-                          final bool hasUpvoted = userVoteVal == 1;
-                          final bool hasDownvoted = userVoteVal == -1;
+                        }
+                        final bool hasUpvoted = userVoteVal == 1;
+                        final bool hasDownvoted = userVoteVal == -1;
 
-                          final upvoters = votedList
-                              .where((v) => v is Map && v['value'] == 1)
-                              .map((v) => (v as Map)['displayName']?.toString() ?? 'User')
-                              .toList();
-                          final downvoters = votedList
-                              .where((v) => v is Map && v['value'] == -1)
-                              .map((v) => (v as Map)['displayName']?.toString() ?? 'User')
-                              .toList();
+                        final upvoters = votedList
+                            .where((v) => v is Map && v['value'] == 1)
+                            .map(
+                              (v) =>
+                                  (v as Map)['displayName']?.toString() ??
+                                  'User',
+                            )
+                            .toList();
+                        final downvoters = votedList
+                            .where((v) => v is Map && v['value'] == -1)
+                            .map(
+                              (v) =>
+                                  (v as Map)['displayName']?.toString() ??
+                                  'User',
+                            )
+                            .toList();
 
-                          final track = Track.fromPlaylistTrackJson(entry);
+                        final track = Track.fromPlaylistTrackJson(entry);
 
-                          return Consumer<AudioProvider>(
-                            builder: (context, audioProvider, child) {
-                              final isCurrent = audioProvider.currentTrack?.id == track.id;
-                              final isPlaying = isCurrent && audioProvider.isPlaying;
+                        return Consumer<AudioProvider>(
+                          builder: (context, audioProvider, child) {
+                            final isCurrent =
+                                audioProvider.currentTrack?.id == track.id;
+                            final isPlaying =
+                                isCurrent && audioProvider.isPlaying;
 
-                              return Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
+                            return Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
                                   color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.05),
-                                    width: 1,
-                                  ),
+                                  width: 1,
                                 ),
-                                child: Row(
-                                  children: [
-                                    // Rank Number or Active playing volume icon
-                                    Container(
-                                      width: 24,
-                                      alignment: Alignment.center,
-                                      child: isPlaying
-                                          ? const Icon(Icons.volume_up_rounded, color: Colors.greenAccent, size: 18)
-                                          : Text(
-                                              '${index + 1}',
-                                              style: TextStyle(
-                                                color: index == 0 ? Colors.greenAccent : Colors.white70,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    // Album Art
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: coverUrl.isNotEmpty
-                                          ? Image.network(
-                                              coverUrl,
-                                              width: 50,
-                                              height: 50,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  Container(
-                                                color: Colors.grey[900],
-                                                width: 50,
-                                                height: 50,
-                                                child: const Icon(Icons.music_note, color: Colors.grey),
-                                              ),
-                                            )
-                                          : Container(
-                                              color: Colors.grey[900],
-                                              width: 50,
-                                              height: 50,
-                                              child: const Icon(Icons.music_note, color: Colors.grey),
-                                            ),
-                                    ),
-                                    const SizedBox(width: 12),
-
-                                    // Title and Artist
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            title,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Rank Number or Active playing volume icon
+                                  Container(
+                                    width: 24,
+                                    alignment: Alignment.center,
+                                    child: isPlaying
+                                        ? const Icon(
+                                            Icons.volume_up_rounded,
+                                            color: Colors.greenAccent,
+                                            size: 18,
+                                          )
+                                        : Text(
+                                            '${index + 1}',
                                             style: TextStyle(
-                                              color: isPlaying ? Colors.greenAccent : Colors.white,
+                                              color: index == 0
+                                                  ? Colors.greenAccent
+                                                  : Colors.white70,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 15,
+                                              fontSize: 14,
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // Album Art
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: coverUrl.isNotEmpty
+                                        ? Image.network(
+                                            coverUrl,
+                                            width: 50,
+                                            height: 50,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    Container(
+                                                      color: Colors.grey[900],
+                                                      width: 50,
+                                                      height: 50,
+                                                      child: const Icon(
+                                                        Icons.music_note,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
+                                          )
+                                        : Container(
+                                            color: Colors.grey[900],
+                                            width: 50,
+                                            height: 50,
+                                            child: const Icon(
+                                              Icons.music_note,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                  ),
+                                  const SizedBox(width: 12),
+
+                                  // Title and Artist
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title,
+                                          style: TextStyle(
+                                            color: isPlaying
+                                                ? Colors.greenAccent
+                                                : Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          artist,
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (isCurrent) ...[
+                                          const SizedBox(height: 8),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              2,
+                                            ),
+                                            child: LinearProgressIndicator(
+                                              value:
+                                                  audioProvider
+                                                          .duration
+                                                          .inMilliseconds >
+                                                      0
+                                                  ? audioProvider
+                                                            .position
+                                                            .inMilliseconds /
+                                                        audioProvider
+                                                            .duration
+                                                            .inMilliseconds
+                                                  : 0.0,
+                                              backgroundColor: Colors.white10,
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation<
+                                                    Color
+                                                  >(Colors.greenAccent),
+                                              minHeight: 4,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                _formatDuration(
+                                                  audioProvider.position,
+                                                ),
+                                                style: TextStyle(
+                                                  color: Colors.grey[400],
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                              Text(
+                                                _formatDuration(
+                                                  audioProvider.duration,
+                                                ),
+                                                style: TextStyle(
+                                                  color: Colors.grey[400],
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                        if (suggestedByName.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
                                           Text(
-                                            artist,
-                                            style: TextStyle(
-                                              color: Colors.grey[400],
-                                              fontSize: 12,
+                                            'Suggested by $suggestedByName',
+                                            style: const TextStyle(
+                                              color: Colors.greenAccent,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
-                                          if (isCurrent) ...[
-                                            const SizedBox(height: 8),
-                                            ClipRRect(
-                                              borderRadius: BorderRadius.circular(2),
-                                              child: LinearProgressIndicator(
-                                                value: audioProvider.duration.inMilliseconds > 0
-                                                    ? audioProvider.position.inMilliseconds / audioProvider.duration.inMilliseconds
-                                                    : 0.0,
-                                                backgroundColor: Colors.white10,
-                                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.greenAccent),
-                                                minHeight: 4,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Text(
-                                                  _formatDuration(audioProvider.position),
-                                                  style: TextStyle(
-                                                    color: Colors.grey[400],
-                                                    fontSize: 10,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  _formatDuration(audioProvider.duration),
-                                                  style: TextStyle(
-                                                    color: Colors.grey[400],
-                                                    fontSize: 10,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                          if (suggestedByName.isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Suggested by $suggestedByName',
-                                              style: const TextStyle(
-                                                color: Colors.greenAccent,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                          if (index > 0 && (upvoters.isNotEmpty || downvoters.isNotEmpty)) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Votes: ${upvoters.isNotEmpty ? '▲ ${upvoters.join(', ')}' : ''}${upvoters.isNotEmpty && downvoters.isNotEmpty ? '  ' : ''}${downvoters.isNotEmpty ? '▼ ${downvoters.join(', ')}' : ''}',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(0.5),
-                                                fontSize: 10,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
                                         ],
-                                      ),
-                                    ),
-
-                                    // Voting Widget (Only visible from position 2 and above, i.e., index > 0)
-                                    if (index > 0)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // Downvote
-                                          IconButton(
-                                            icon: Icon(
-                                              Icons.arrow_downward_rounded,
-                                              size: 20,
-                                              color: hasDownvoted ? Colors.redAccent : Colors.grey,
+                                        if (index > 0 &&
+                                            (upvoters.isNotEmpty ||
+                                                downvoters.isNotEmpty)) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Votes: ${upvoters.isNotEmpty ? '▲ ${upvoters.join(', ')}' : ''}${upvoters.isNotEmpty && downvoters.isNotEmpty ? '  ' : ''}${downvoters.isNotEmpty ? '▼ ${downvoters.join(', ')}' : ''}',
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(
+                                                0.5,
+                                              ),
+                                              fontSize: 10,
                                             ),
-                                            onPressed: () => _sendVote(entryId, -1),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
 
-                                          // Vote Count Bold pill
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: voteCount > 0
-                                                  ? Colors.green.withOpacity(0.2)
-                                                  : (voteCount < 0
-                                                      ? Colors.red.withOpacity(0.2)
-                                                      : Colors.white.withOpacity(0.1)),
-                                              borderRadius: BorderRadius.circular(12),
+                                  // Voting Widget (Only visible from position 2 and above, i.e., index > 0)
+                                  if (index > 0)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Downvote
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.arrow_downward_rounded,
+                                            size: 20,
+                                            color: hasDownvoted
+                                                ? Colors.redAccent
+                                                : Colors.grey,
+                                          ),
+                                          onPressed: () =>
+                                              _sendVote(entryId, -1),
+                                        ),
+
+                                        // Vote Count Bold pill
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: voteCount > 0
+                                                ? Colors.green.withOpacity(0.2)
+                                                : (voteCount < 0
+                                                      ? Colors.red.withOpacity(
+                                                          0.2,
+                                                        )
+                                                      : Colors.white
+                                                            .withOpacity(0.1)),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
-                                            child: Text(
-                                              voteCount > 0 ? '+$voteCount' : '$voteCount',
-                                              style: TextStyle(
-                                                color: voteCount > 0
-                                                    ? Colors.greenAccent
-                                                    : (voteCount < 0
+                                          ),
+                                          child: Text(
+                                            voteCount > 0
+                                                ? '+$voteCount'
+                                                : '$voteCount',
+                                            style: TextStyle(
+                                              color: voteCount > 0
+                                                  ? Colors.greenAccent
+                                                  : (voteCount < 0
                                                         ? Colors.redAccent
                                                         : Colors.white70),
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 12,
-                                              ),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 12,
                                             ),
                                           ),
+                                        ),
 
-                                          // Upvote
-                                          IconButton(
-                                            icon: Icon(
-                                              Icons.arrow_upward_rounded,
-                                              size: 20,
-                                              color: hasUpvoted ? Colors.greenAccent : Colors.white70,
-                                            ),
-                                            onPressed: () => _sendVote(entryId, 1),
+                                        // Upvote
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.arrow_upward_rounded,
+                                            size: 20,
+                                            color: hasUpvoted
+                                                ? Colors.greenAccent
+                                                : Colors.white70,
                                           ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        childCount: _tracks.length,
-                      ),
+                                          onPressed: () =>
+                                              _sendVote(entryId, 1),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      }, childCount: _tracks.length),
                     ),
                   ),
               ],
@@ -1183,12 +1451,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Widget _buildPrivateRoomAccessDenied() {
+    final title = _isLocked
+        ? 'Event Room is Locked'
+        : 'Private Room Access Denied';
+    final subtitle = _isLocked
+        ? 'This live music session has already started and is locked for new participants. Tap below to find other active rooms!'
+        : 'This room is private. You must be invited by the owner in order to join the groove.';
+    final iconData = _isLocked ? Icons.lock_clock_rounded : Icons.lock_rounded;
+    final iconColor = _isLocked ? Colors.amberAccent : Colors.redAccent;
+    final gradientColors = _isLocked
+        ? [const Color(0xFF0F2027), const Color(0xFF203A43)]
+        : [const Color(0xFF1F1C2C), const Color(0xFF928DAB)];
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1F1C2C), Color(0xFF928DAB)],
+            colors: gradientColors,
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -1204,19 +1484,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   decoration: BoxDecoration(
                     color: Colors.black26,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.redAccent, width: 2),
+                    border: Border.all(color: iconColor, width: 2),
                   ),
-                  child: const Icon(
-                    Icons.lock_rounded,
-                    color: Colors.redAccent,
-                    size: 80,
-                  ),
+                  child: Icon(iconData, color: iconColor, size: 80),
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'Private Room Access Denied',
+                Text(
+                  title,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
@@ -1224,7 +1500,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'This room is private. You must be invited by the owner in order to join the groove.',
+                  subtitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey[300],
@@ -1237,7 +1513,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
                     ),
@@ -1332,9 +1611,9 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to search tracks: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to search tracks: $e')));
       }
     }
   }
@@ -1372,7 +1651,10 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
             backgroundColor: Colors.green,
             content: Text(
               'Successfully suggested "${track.title}"!',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         );
@@ -1382,9 +1664,9 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
         setState(() {
           _isSuggesting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to suggest track: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to suggest track: $e')));
       }
     }
   }
@@ -1468,59 +1750,68 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
             Expanded(
               child: _searchController.text.trim().isEmpty
                   ? (_isLoadingRandom
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(color: Colors.green),
-                              SizedBox(height: 12),
-                              Text(
-                                'Loading trending suggestions...',
-                                style: TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _randomTracks.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'Type something to search',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        ? const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(bottom: 12),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.local_fire_department, color: Colors.amber, size: 18),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        'Trending Suggestions',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                CircularProgressIndicator(color: Colors.green),
+                                SizedBox(height: 12),
+                                Text(
+                                  'Loading trending suggestions...',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 13,
                                   ),
                                 ),
-                                Expanded(child: _buildTrackList(_randomTracks)),
                               ],
-                            ))
-                  : _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Colors.green))
-                      : (_searchResults.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No results found',
-                                style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : _randomTracks.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Type something to search',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.local_fire_department,
+                                      color: Colors.amber,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Trending Suggestions',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            )
-                          : _buildTrackList(_searchResults)),
+                              Expanded(child: _buildTrackList(_randomTracks)),
+                            ],
+                          ))
+                  : _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.green),
+                    )
+                  : (_searchResults.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No results found',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : _buildTrackList(_searchResults)),
             ),
           ],
         ),
@@ -1577,7 +1868,10 @@ class _EventAddTrackModalState extends State<_EventAddTrackModal> {
                   ),
                 )
               : IconButton(
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent),
+                  icon: const Icon(
+                    Icons.add_circle_outline,
+                    color: Colors.greenAccent,
+                  ),
                   onPressed: () => _suggestTrack(track),
                 ),
         );

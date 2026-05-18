@@ -377,7 +377,8 @@ public class EventServiceImpl implements EventService {
             return java.util.Map.of(
                 "role", "owner",
                 "allowed", true,
-                "visibility", visibility
+                "visibility", visibility,
+                "locked", false
             );
         }
 
@@ -389,7 +390,18 @@ public class EventServiceImpl implements EventService {
             return java.util.Map.of(
                 "role", role,
                 "allowed", true,
-                "visibility", visibility
+                "visibility", visibility,
+                "locked", false
+            );
+        }
+
+        // Lock event for new users if it has already started
+        if (playbackService.isEventPlaying(eventId)) {
+            return java.util.Map.of(
+                "role", "none",
+                "allowed", false,
+                "visibility", visibility,
+                "locked", true
             );
         }
 
@@ -397,7 +409,8 @@ public class EventServiceImpl implements EventService {
         return java.util.Map.of(
             "role", isPublic ? "viewer" : "none",
             "allowed", isPublic,
-            "visibility", visibility
+            "visibility", visibility,
+            "locked", false
         );
     }
 

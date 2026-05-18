@@ -4,7 +4,7 @@ import '../models/track_model.dart';
 
 class AudioProvider extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
-  
+
   List<Track> _playlist = [];
   int _currentIndex = -1;
   bool _isPlaying = false;
@@ -17,6 +17,7 @@ class AudioProvider extends ChangeNotifier {
 
   VoidCallback? onTrackCompleted;
   Function(String command, int positionMs)? onPlaybackStateChanged;
+  Future<void> Function()? onSyncPlayback;
 
   AudioProvider() {
     _audioPlayer.playerStateStream.listen((state) {
@@ -42,10 +43,11 @@ class AudioProvider extends ChangeNotifier {
     });
   }
 
-  Track? get currentTrack => (_currentIndex >= 0 && _currentIndex < _playlist.length) 
-        ? _playlist[_currentIndex] 
-        : null;
-        
+  Track? get currentTrack =>
+      (_currentIndex >= 0 && _currentIndex < _playlist.length)
+      ? _playlist[_currentIndex]
+      : null;
+
   bool get isPlaying => _isPlaying;
   Duration get position => _position;
   Duration get duration => _duration;
@@ -64,7 +66,13 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> playTrack(Track track, {List<Track>? playlist, int index = 0, bool isLiveEvent = false, int seekToMs = 0}) async {
+  Future<void> playTrack(
+    Track track, {
+    List<Track>? playlist,
+    int index = 0,
+    bool isLiveEvent = false,
+    int seekToMs = 0,
+  }) async {
     _isLiveEvent = isLiveEvent;
     if (playlist != null) {
       _playlist = playlist;
@@ -74,7 +82,9 @@ class AudioProvider extends ChangeNotifier {
       _currentIndex = 0;
     }
 
-    debugPrint("--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}, isLiveEvent: $isLiveEvent, seekToMs: $seekToMs");
+    debugPrint(
+      "--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}, isLiveEvent: $isLiveEvent, seekToMs: $seekToMs",
+    );
 
     if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
       try {
@@ -95,13 +105,16 @@ class AudioProvider extends ChangeNotifier {
         debugPrint("Error playing audio: $e");
       }
     } else {
-      debugPrint("--- AudioProvider.playTrack: ERROR: track.audioUrl is empty or null!");
+      debugPrint(
+        "--- AudioProvider.playTrack: ERROR: track.audioUrl is empty or null!",
+      );
     }
     notifyListeners();
   }
 
   Future<void> togglePlayPause() async {
-    if (_isLiveEvent) return; // Block playback state changes locally during live events
+    if (_isLiveEvent)
+      return; // Block playback state changes locally during live events
     final targetCommand = _isPlaying ? 'PAUSE' : 'PLAY';
     final currentPositionMs = _position.inMilliseconds;
     if (_isPlaying) {
@@ -137,7 +150,8 @@ class AudioProvider extends ChangeNotifier {
     if (_isLiveEvent) return;
     if (_currentIndex < _playlist.length - 1) {
       _currentIndex++;
-      if (_playlist[_currentIndex].audioUrl != null && _playlist[_currentIndex].audioUrl!.isNotEmpty) {
+      if (_playlist[_currentIndex].audioUrl != null &&
+          _playlist[_currentIndex].audioUrl!.isNotEmpty) {
         try {
           await _audioPlayer.setUrl(_playlist[_currentIndex].audioUrl!);
           await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
@@ -157,7 +171,8 @@ class AudioProvider extends ChangeNotifier {
     if (_isLiveEvent) return;
     if (_currentIndex > 0) {
       _currentIndex--;
-      if (_playlist[_currentIndex].audioUrl != null && _playlist[_currentIndex].audioUrl!.isNotEmpty) {
+      if (_playlist[_currentIndex].audioUrl != null &&
+          _playlist[_currentIndex].audioUrl!.isNotEmpty) {
         try {
           await _audioPlayer.setUrl(_playlist[_currentIndex].audioUrl!);
           await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
