@@ -515,9 +515,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       _audioProvider.onSyncPlayback = null;
       _audioProvider.onTrackCompleted = null;
-      _audioProvider.stop();
+      // Do NOT stop audio here — allow background listening while navigating.
+      // The user can come back to the event and rejoin seamlessly.
     } catch (e) {
-      debugPrint('Error stopping audio on dispose: $e');
+      debugPrint('Error cleaning up on dispose: $e');
     }
     super.dispose();
   }

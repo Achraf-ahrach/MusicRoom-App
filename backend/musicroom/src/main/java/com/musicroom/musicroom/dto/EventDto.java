@@ -16,6 +16,7 @@ public class EventDto {
     private LocalDateTime startsAt;
     private LocalDateTime endsAt;
     private boolean active;
+    private boolean isPlaying;
     private UUID ownerId;
     private String ownerName;
     private int trackCount;

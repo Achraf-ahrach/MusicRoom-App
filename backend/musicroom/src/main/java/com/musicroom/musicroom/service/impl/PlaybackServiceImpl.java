@@ -84,6 +84,17 @@ public class PlaybackServiceImpl implements PlaybackService {
         activeEvents.add(eventId);
         log.info("Event {} started by user {}", eventId, userId);
 
+        // Broadcast to global events topic so home screen can update Live/Open status
+        try {
+            Map<String, Object> globalPayload = new HashMap<>();
+            globalPayload.put("type", "EVENT_PLAYBACK_CHANGED");
+            globalPayload.put("eventId", eventId.toString());
+            globalPayload.put("isPlaying", true);
+            messagingTemplate.convertAndSend("/topic/events", globalPayload);
+        } catch (Exception e) {
+            log.error("Failed to broadcast EVENT_PLAYBACK_CHANGED to /topic/events", e);
+        }
+
         // Play the first track
         playNextTrack(eventId);
     }
@@ -212,11 +223,23 @@ public class PlaybackServiceImpl implements PlaybackService {
             log.info("Event {} queue is empty, waiting for new tracks", eventId);
             currentlyPlaying.remove(eventId);
             trackStartTimes.remove(eventId);
+            activeEvents.remove(eventId);
 
             // Broadcast QUEUE_EMPTY so clients know nothing is playing
             PlaybackMessage emptyMsg = new PlaybackMessage();
             emptyMsg.setCommand("QUEUE_EMPTY");
             messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playback", emptyMsg);
+
+            // Broadcast to global events topic so home screen updates Live/Open badge
+            try {
+                Map<String, Object> globalPayload = new HashMap<>();
+                globalPayload.put("type", "EVENT_PLAYBACK_CHANGED");
+                globalPayload.put("eventId", eventId.toString());
+                globalPayload.put("isPlaying", false);
+                messagingTemplate.convertAndSend("/topic/events", globalPayload);
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_PLAYBACK_CHANGED to /topic/events", e);
+            }
             return;
         }
 

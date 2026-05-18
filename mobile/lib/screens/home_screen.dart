@@ -183,6 +183,19 @@ class HomeScreenState extends State<HomeScreen> {
                         }
                       });
                     }
+                  } else if (type == 'EVENT_PLAYBACK_CHANGED') {
+                    final String? eventId = data['eventId'];
+                    final bool? isPlaying = data['isPlaying'];
+                    if (eventId != null && isPlaying != null) {
+                      setState(() {
+                        final idx = events.indexWhere((e) => e['id'] == eventId);
+                        if (idx != -1) {
+                          final copy = Map<String, dynamic>.from(events[idx]);
+                          copy['playing'] = isPlaying;
+                          events[idx] = copy;
+                        }
+                      });
+                    }
                   }
                 } catch (e) {
                   debugPrint('Error parsing global event WS message: $e');
@@ -536,9 +549,34 @@ class _HomeContent extends StatelessWidget {
                             : (eventCover != null && eventCover.isNotEmpty ? eventCover : null);
 
                         final int participantCount = event['participantCount'] ?? 1;
+                        final bool isLive = event['playing'] == true;
 
                         return GestureDetector(
                           onTap: () {
+                            final String? currentUserId = authProvider.currentUser?.id;
+                            final bool isOwner = event['ownerId'] == currentUserId;
+                            
+                            if (isLive && !isOwner) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: Colors.red[700],
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.lock, color: Colors.white, size: 18),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'This event is already live and in session. You cannot join now.',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -561,7 +599,9 @@ class _HomeContent extends StatelessWidget {
                               color: Colors.grey[900],
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: Colors.green.withValues(alpha: 0.2),
+                                color: isLive
+                                    ? Colors.red.withValues(alpha: 0.4)
+                                    : Colors.green.withValues(alpha: 0.2),
                               ),
                             ),
                             child: ClipRRect(
@@ -609,7 +649,51 @@ class _HomeContent extends StatelessWidget {
                                               size: 32,
                                             ),
                                           ),
-                                        // Participant Count Badge Overlay
+                                        // Live / Open status badge (top-left)
+                                        Positioned(
+                                          top: 6,
+                                          left: 6,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: isLive
+                                                  ? Colors.red.withValues(alpha: 0.85)
+                                                  : Colors.green.withValues(alpha: 0.85),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 6,
+                                                  height: 6,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.white.withValues(alpha: 0.6),
+                                                        blurRadius: 3,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  isLive ? 'LIVE' : 'OPEN',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 8,
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        // Participant Count Badge Overlay (top-right)
                                         Positioned(
                                           top: 6,
                                           right: 6,
@@ -640,6 +724,11 @@ class _HomeContent extends StatelessWidget {
                                             ),
                                           ),
                                         ),
+                                        // Dimming overlay for live events
+                                        if (isLive)
+                                          Container(
+                                            color: Colors.black.withValues(alpha: 0.3),
+                                          ),
                                       ],
                                     ),
                                   ),

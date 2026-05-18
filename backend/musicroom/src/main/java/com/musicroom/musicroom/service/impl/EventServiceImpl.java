@@ -39,6 +39,10 @@ public class EventServiceImpl implements EventService {
     private final SimpMessagingTemplate messagingTemplate;
     private final PlaybackService playbackService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.musicroom.musicroom.controller.WebSocketEventListener webSocketEventListener;
+
     @Override
     @Transactional
     public EventDto createEvent(UUID ownerId, CreateEventRequest request) {
@@ -149,6 +153,25 @@ public class EventServiceImpl implements EventService {
             ));
         } catch (Exception e) {
             log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteEventSystem(UUID eventId) {
+        Event event = eventRepo.findById(eventId).orElse(null);
+        if (event != null) {
+            event.setActive(false);
+            eventRepo.save(event);
+
+            try {
+                messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                    "type", "EVENT_DELETED",
+                    "eventId", eventId.toString()
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+            }
         }
     }
 
@@ -463,10 +486,11 @@ public class EventServiceImpl implements EventService {
                 .startsAt(event.getStartsAt())
                 .endsAt(event.getEndsAt())
                 .active(event.isActive())
+                .isPlaying(playbackService.isEventPlaying(event.getId()))
                 .ownerId(event.getOwner().getId())
                 .ownerName(event.getOwner().getDisplayName())
                 .trackCount(event.getPlaylist() != null ? event.getPlaylist().size() : 0)
-                .participantCount(1 + (event.getInvites() != null ? event.getInvites().size() : 0))
+                .participantCount(webSocketEventListener.getListenerCount(event.getId()))
                 .createdAt(event.getCreatedAt())
                 .coverUrl(event.getCoverUrl())
                 .firstTrackCoverUrl(firstTrackCover)

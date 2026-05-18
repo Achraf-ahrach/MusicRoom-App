@@ -1,8 +1,8 @@
 package com.musicroom.musicroom.controller;
 
-import com.musicroom.musicroom.repository.EventRepository;
 import com.musicroom.musicroom.repository.UserRepository;
 import com.musicroom.musicroom.security.JwtTokenProvider;
+import com.musicroom.musicroom.service.PlaybackService;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+
 
 @Component
 @RequiredArgsConstructor
@@ -30,9 +30,14 @@ import java.util.concurrent.TimeUnit;
 public class WebSocketEventListener {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final EventRepository eventRepo;
     private final UserRepository userRepo;
     private final JwtTokenProvider jwtTokenProvider;
+    private final PlaybackService playbackService;
+    
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.musicroom.musicroom.service.EventService eventService;
+
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     // Map of eventId -> Set of sessionIds
@@ -89,7 +94,7 @@ public class WebSocketEventListener {
                         log.warn("Could not register active listener user details: {}", ex.getMessage());
                     }
 
-                    int count = calculateUniqueListenerCount(eventId);
+                    int count = getListenerCount(eventId);
                     broadcastListenerCount(eventId, count);
                 }
             } catch (Exception e) {
@@ -127,32 +132,21 @@ public class WebSocketEventListener {
             Set<String> sessions = roomListeners.get(eventId);
             if (sessions != null) {
                 sessions.remove(sessionId);
-                int count = calculateUniqueListenerCount(eventId);
+                int count = getListenerCount(eventId);
                 broadcastListenerCount(eventId, count);
 
-                if (count == 0) {
-                    scheduler.schedule(() -> {
-                        try {
-                            Set<String> activeSessions = roomListeners.get(eventId);
-                            if (activeSessions == null || activeSessions.isEmpty()) {
-                                eventRepo.deleteById(eventId);
-                                roomListeners.remove(eventId);
-                                log.info("Event {} deleted as active listener count remained 0 for 15 seconds", eventId);
-                                try {
-                                    messagingTemplate.convertAndSend("/topic/events", Map.of(
-                                        "type", "EVENT_DELETED",
-                                        "eventId", eventId.toString()
-                                    ));
-                                } catch (Exception e) {
-                                    log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
-                                }
-                            } else {
-                                log.info("Scheduled deletion for event {} cancelled as new listeners joined during grace period", eventId);
-                            }
-                        } catch (Exception e) {
-                            log.error("Failed to delete event " + eventId + " on scheduled listener count 0", e);
-                        }
-                    }, 15, TimeUnit.SECONDS);
+                // When all listeners leave, delete the event entirely
+                if (sessions.isEmpty()) {
+                    roomListeners.remove(eventId);
+                    log.info("All listeners left event {}, deleting it", eventId);
+
+                    // Stop the playback engine
+                    if (playbackService.isEventPlaying(eventId)) {
+                        playbackService.stopEvent(eventId);
+                    }
+
+                    // Delete the event
+                    eventService.deleteEventSystem(eventId);
                 }
             }
         }
@@ -174,7 +168,7 @@ public class WebSocketEventListener {
         return new java.util.ArrayList<>(uniqueUsers.values());
     }
 
-    private int calculateUniqueListenerCount(UUID eventId) {
+    public int getListenerCount(UUID eventId) {
         Set<String> sessions = roomListeners.get(eventId);
         if (sessions == null || sessions.isEmpty()) {
             return 0;

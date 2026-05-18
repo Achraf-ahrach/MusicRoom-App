@@ -13,6 +13,7 @@ public interface EventService {
     EventDto getEventById(UUID eventId);
     EventDto updateEvent(UUID ownerId, UUID eventId, CreateEventRequest request);
     void deleteEvent(UUID ownerId, UUID eventId);
+    void deleteEventSystem(UUID eventId);
     void inviteUser(UUID ownerId, UUID eventId, InviteUserRequest request);
     List<PlaylistEntryDto> getPlaylist(UUID eventId);
     PlaylistEntryDto suggestTrack(UUID userId, UUID eventId, SuggestTrackRequest request);
