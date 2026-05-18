@@ -78,11 +78,15 @@ class AudioProvider extends ChangeNotifier {
 
     if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
       try {
-        await _audioPlayer.setUrl(track.audioUrl!);
-        await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
         if (seekToMs > 0) {
-          await _audioPlayer.seek(Duration(milliseconds: seekToMs));
+          await _audioPlayer.setUrl(
+            track.audioUrl!,
+            initialPosition: Duration(milliseconds: seekToMs),
+          );
+        } else {
+          await _audioPlayer.setUrl(track.audioUrl!);
         }
+        await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
         _audioPlayer.play();
         if (!_isLiveEvent) {
           onPlaybackStateChanged?.call('PLAY', seekToMs);

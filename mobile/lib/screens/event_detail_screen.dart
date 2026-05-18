@@ -285,8 +285,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                   final audioProvider = Provider.of<AudioProvider>(context, listen: false);
 
-                  // Prevent looping/stuttering if already playing this track
-                  if (audioProvider.currentTrack?.id == trackId && audioProvider.isPlaying) {
+                  // Prevent looping/stuttering if already playing/loading this track
+                  if (audioProvider.currentTrack?.id == trackId) {
+                    if (!audioProvider.isPlaying) {
+                      audioProvider.playTrack(audioProvider.currentTrack!, isLiveEvent: true);
+                    }
                     return;
                   }
 
