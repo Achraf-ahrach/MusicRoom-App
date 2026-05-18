@@ -553,10 +553,7 @@ class _HomeContent extends StatelessWidget {
 
                         return GestureDetector(
                           onTap: () {
-                            final String? currentUserId = authProvider.currentUser?.id;
-                            final bool isOwner = event['ownerId'] == currentUserId;
-                            
-                            if (isLive && !isOwner) {
+                            if (isLive) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   duration: const Duration(seconds: 2),
