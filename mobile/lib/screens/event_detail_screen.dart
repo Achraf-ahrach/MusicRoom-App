@@ -121,10 +121,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         debugPrint('Error fetching playback status: $e');
       }
 
+      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+      final isLocallyPlayingLive =
+          audioProvider.isPlaying && audioProvider.isLiveEvent;
+
       setState(() {
         _eventDetails = details;
         _tracks = playlist;
-        _isEventPlaying = isPlaying;
+        _isEventPlaying = isPlaying || _isEventPlaying || isLocallyPlayingLive;
         _isLoading = false;
       });
 
