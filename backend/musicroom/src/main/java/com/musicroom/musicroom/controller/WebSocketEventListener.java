@@ -131,7 +131,6 @@ public class WebSocketEventListener {
                 broadcastListenerCount(eventId, count);
 
                 if (count == 0) {
-                    // Introduce a 15-second grace period to prevent deletions on screen navigation, network dropouts, or hot restarts
                     scheduler.schedule(() -> {
                         try {
                             Set<String> activeSessions = roomListeners.get(eventId);
@@ -139,6 +138,14 @@ public class WebSocketEventListener {
                                 eventRepo.deleteById(eventId);
                                 roomListeners.remove(eventId);
                                 log.info("Event {} deleted as active listener count remained 0 for 15 seconds", eventId);
+                                try {
+                                    messagingTemplate.convertAndSend("/topic/events", Map.of(
+                                        "type", "EVENT_DELETED",
+                                        "eventId", eventId.toString()
+                                    ));
+                                } catch (Exception e) {
+                                    log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+                                }
                             } else {
                                 log.info("Scheduled deletion for event {} cancelled as new listeners joined during grace period", eventId);
                             }
@@ -170,5 +177,14 @@ public class WebSocketEventListener {
     private void broadcastListenerCount(UUID eventId, int count) {
         Map<String, Object> payload = Map.of("count", count);
         messagingTemplate.convertAndSend("/topic/event/" + eventId + "/listeners", payload);
+        try {
+            messagingTemplate.convertAndSend("/topic/events", Map.of(
+                "type", "LISTENER_COUNT_CHANGED",
+                "eventId", eventId.toString(),
+                "count", count
+            ));
+        } catch (Exception e) {
+            log.error("Failed to broadcast LISTENER_COUNT_CHANGED to /topic/events", e);
+        }
     }
 }

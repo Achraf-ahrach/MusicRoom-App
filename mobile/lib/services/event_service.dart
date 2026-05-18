@@ -23,7 +23,7 @@ class EventService {
 
   static const String _eventsPath = '/api/events';
 
-  Future<void> createEvent(
+  Future<Map<String, dynamic>> createEvent(
     String name,
     String description,
     bool isPrivate,
@@ -50,6 +50,8 @@ class EventService {
           : response.body;
       throw Exception('Failed to create event: $errorMsg');
     }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> inviteUser(String eventId, String userId, String token) async {

@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../services/audius_service.dart';
 import '../services/user_service.dart';
+import '../services/event_service.dart';
 import '../models/track_model.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/auth_provider.dart';
@@ -23,6 +26,7 @@ class HomeScreen extends StatefulWidget {
 class HomeScreenState extends State<HomeScreen> {
   final AudiusService _audiusService = AudiusService();
   final UserService _userService = UserService();
+  final EventService _eventService = EventService();
   bool isLoadingTracks = true;
   bool isLoadingEvents = true;
   List<Track> trendingTracks = [];
@@ -30,6 +34,9 @@ class HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> events = [];
   String? trackError;
   String? eventError;
+
+  StompClient? _eventsStompClient;
+  bool _isEventsWsConnected = false;
 
   @override
   void initState() {
@@ -48,10 +55,17 @@ class HomeScreenState extends State<HomeScreen> {
           listen: false,
         ).loadPlaylists(authProvider.currentUser);
         _fetchEvents(token);
+        _connectEventsWebSocket(token);
       } else {
         setState(() => isLoadingEvents = false);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _eventsStompClient?.deactivate();
+    super.dispose();
   }
 
   Future<void> _fetchData() async {
@@ -85,6 +99,7 @@ class HomeScreenState extends State<HomeScreen> {
                   events = refetched;
                   isLoadingEvents = false;
                 });
+                _connectEventsWebSocket(newToken);
               }
               return;
             } catch (_) {}
@@ -98,6 +113,113 @@ class HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  void _connectEventsWebSocket(String token) {
+    if (_eventsStompClient != null && _eventsStompClient!.isActive) {
+      _eventsStompClient!.deactivate();
+    }
+
+    final wsUrl = _eventService.baseUrl.replaceFirst('http', 'ws') + '/ws';
+    debugPrint('Connecting to Global Events WebSocket: $wsUrl');
+
+    _eventsStompClient = StompClient(
+      config: StompConfig(
+        url: wsUrl,
+        onConnect: (StompFrame frame) {
+          debugPrint('STOMP connected for Global Events');
+          if (!mounted) return;
+          setState(() {
+            _isEventsWsConnected = true;
+          });
+
+          // Subscribe to global events topic
+          _eventsStompClient?.subscribe(
+            destination: '/topic/events',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                try {
+                  final data = jsonDecode(frame.body!);
+                  final String type = data['type'] ?? '';
+                  debugPrint('Received global event WS message: $type');
+
+                  if (type == 'EVENT_CREATED') {
+                    if (data['event'] != null) {
+                      final newEvent = Map<String, dynamic>.from(data['event']);
+                      setState(() {
+                        events.removeWhere((e) => e['id'] == newEvent['id']);
+                        events.add(newEvent);
+                      });
+                    }
+                  } else if (type == 'EVENT_UPDATED') {
+                    if (data['event'] != null) {
+                      final updatedEvent = Map<String, dynamic>.from(data['event']);
+                      setState(() {
+                        final idx = events.indexWhere((e) => e['id'] == updatedEvent['id']);
+                        if (idx != -1) {
+                          events[idx] = updatedEvent;
+                        } else {
+                          events.add(updatedEvent);
+                        }
+                      });
+                    }
+                  } else if (type == 'EVENT_DELETED') {
+                    final String? deletedEventId = data['eventId'];
+                    if (deletedEventId != null) {
+                      setState(() {
+                        events.removeWhere((e) => e['id'] == deletedEventId);
+                      });
+                    }
+                  } else if (type == 'LISTENER_COUNT_CHANGED') {
+                    final String? eventId = data['eventId'];
+                    final int? count = data['count'];
+                    if (eventId != null && count != null) {
+                      setState(() {
+                        final idx = events.indexWhere((e) => e['id'] == eventId);
+                        if (idx != -1) {
+                          final copy = Map<String, dynamic>.from(events[idx]);
+                          copy['participantCount'] = count;
+                          events[idx] = copy;
+                        }
+                      });
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('Error parsing global event WS message: $e');
+                }
+              }
+            },
+          );
+        },
+        stompConnectHeaders: {
+          'Authorization': 'Bearer $token',
+        },
+        webSocketConnectHeaders: {
+          'Authorization': 'Bearer $token',
+        },
+        onDisconnect: (frame) {
+          debugPrint('Global Events STOMP disconnected');
+          if (mounted) {
+            setState(() {
+              _isEventsWsConnected = false;
+            });
+          }
+        },
+        onStompError: (frame) {
+          debugPrint('Global Events STOMP error: ${frame.body}');
+        },
+        onWebSocketError: (error) {
+          debugPrint('Global Events WebSocket error: $error');
+          if (mounted) {
+            setState(() {
+              _isEventsWsConnected = false;
+            });
+          }
+        },
+      ),
+    );
+
+    _eventsStompClient?.activate();
   }
 
 
@@ -638,13 +760,37 @@ class _HomeContent extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Events',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                const Text(
+                  'Events',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (state != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: state._isEventsWsConnected ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
+                      boxShadow: state._isEventsWsConnected
+                          ? [
+                              BoxShadow(
+                                color: Colors.green.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              )
+                            ]
+                          : null,
+                    ),
+                  ),
+                ],
+              ],
             ),
             GestureDetector(
               onTap: () {

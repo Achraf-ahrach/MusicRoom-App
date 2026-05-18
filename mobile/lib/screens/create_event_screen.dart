@@ -3,6 +3,7 @@ import '../config/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/event_service.dart';
+import 'event_detail_screen.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -107,7 +108,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   }
 
                   try {
-                    await EventService().createEvent(
+                    final newEvent = await EventService().createEvent(
                       _nameController.text,
                       _descriptionController.text,
                       _isPrivate,
@@ -118,7 +119,25 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         content: Text('Event created successfully!'),
                       ),
                     );
-                    Navigator.pop(context);
+
+                    final String? eventId = newEvent['id']?.toString();
+                    final String eventName = newEvent['name']?.toString() ?? _nameController.text;
+
+                    if (mounted) {
+                      if (eventId != null) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EventDetailScreen(
+                              eventId: eventId,
+                              eventName: eventName,
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Failed to create event: $e')),

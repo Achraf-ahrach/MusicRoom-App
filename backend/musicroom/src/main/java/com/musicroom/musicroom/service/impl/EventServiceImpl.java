@@ -22,8 +22,11 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepo;
@@ -54,7 +57,18 @@ public class EventServiceImpl implements EventService {
                 .build();
 
         eventRepo.save(event);
-        return toDto(event);
+        EventDto dto = toDto(event);
+
+        try {
+            messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                "type", "EVENT_CREATED",
+                "event", dto
+            ));
+        } catch (Exception e) {
+            log.error("Failed to broadcast EVENT_CREATED to /topic/events", e);
+        }
+
+        return dto;
     }
 
     @Override
@@ -92,6 +106,16 @@ public class EventServiceImpl implements EventService {
         if (request.getEndsAt() != null) event.setEndsAt(request.getEndsAt());
 
         eventRepo.save(event);
+        EventDto dto = toDto(event);
+
+        try {
+            messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                "type", "EVENT_UPDATED",
+                "event", dto
+            ));
+        } catch (Exception e) {
+            log.error("Failed to broadcast EVENT_UPDATED to /topic/events", e);
+        }
 
         // Broadcast event updates (name, description, visibility)
         broadcastEventUpdate(eventId, "EVENT_UPDATED", java.util.Map.of(
@@ -100,7 +124,7 @@ public class EventServiceImpl implements EventService {
             "visibility", event.getVisibility() != null ? event.getVisibility() : "public"
         ));
 
-        return toDto(event);
+        return dto;
     }
 
     @Override
@@ -115,6 +139,15 @@ public class EventServiceImpl implements EventService {
 
         event.setActive(false);
         eventRepo.save(event);
+
+        try {
+            messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                "type", "EVENT_DELETED",
+                "eventId", eventId.toString()
+            ));
+        } catch (Exception e) {
+            log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+        }
     }
 
     @Override
@@ -457,7 +490,15 @@ public class EventServiceImpl implements EventService {
         }
 
         EventInvite invite = inviteRepo.findByEventIdAndUserId(eventId, collaboratorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
+                .orElse(null);
+
+        if (invite == null) {
+            User user = userRepo.findById(collaboratorId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            invite = new EventInvite();
+            invite.setEvent(event);
+            invite.setUser(user);
+        }
 
         if ("editor".equalsIgnoreCase(role)) {
             invite.setRole("admin");

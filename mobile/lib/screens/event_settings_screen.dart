@@ -338,7 +338,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
           ),
           tabs: const [
             Tab(text: 'General'),
-            Tab(text: 'Members'),
+            Tab(text: 'Listeners'),
             Tab(text: 'Invite'),
           ],
         ),
@@ -496,6 +496,13 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
       );
     }
 
+    final ownerCollab = _collaborators.firstWhere(
+      (c) => c['permission'] == 'owner',
+      orElse: () => <String, dynamic>{},
+    );
+    final ownerId = ownerCollab['userId'] as String?;
+    final isCurrentUserOwner = _currentUserId == ownerId;
+
     if (_collaborators.isEmpty && _listeners.isEmpty) {
       return Center(
         child: Column(
@@ -504,7 +511,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
             Icon(Icons.group_off_rounded, color: Colors.white24, size: 64),
             const SizedBox(height: 16),
             const Text(
-              'No members yet',
+              'No listeners yet',
               style: TextStyle(
                   color: Colors.white38,
                   fontSize: 16,
@@ -644,7 +651,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                   ],
                 ),
               ),
-              trailing: isMe
+              trailing: (isCurrentUserOwner && !isMe)
                   ? null
                   : PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, color: Colors.white38),
@@ -729,6 +736,11 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
           final avatarUrl = listener['avatarUrl'] as String? ?? '';
           final isMe = userId == _currentUserId;
 
+          final collabIndexForListener = _collaborators.indexWhere((c) => c['userId'] == userId);
+          final String permission = collabIndexForListener != -1
+              ? _collaborators[collabIndexForListener]['permission'] as String? ?? 'viewer'
+              : 'viewer';
+
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             onTap: () {
@@ -786,6 +798,32 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
+                      color: permission == 'owner'
+                          ? Colors.orangeAccent.withOpacity(0.15)
+                          : (permission == 'editor'
+                              ? const Color(0xFF1DB954).withOpacity(0.15)
+                              : Colors.blueGrey.withOpacity(0.15)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      permission == 'owner'
+                          ? '👑 Owner'
+                          : (permission == 'editor' ? '✏️ Editor' : '👁 Viewer'),
+                      style: TextStyle(
+                        color: permission == 'owner'
+                            ? Colors.orangeAccent
+                            : (permission == 'editor'
+                                ? const Color(0xFF1DB954)
+                                : Colors.blueGrey[200]),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
                       color: const Color(0xFF1DB954).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -808,6 +846,59 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                 ],
               ),
             ),
+            trailing: (isCurrentUserOwner && !isMe)
+                ? PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.white38),
+                    color: AppTheme.surface,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onSelected: (value) {
+                      if (value == 'make_editor') {
+                        _updateRole(userId, 'editor');
+                      } else if (value == 'make_viewer') {
+                        _updateRole(userId, 'viewer');
+                      } else if (value == 'remove') {
+                        _removeCollaborator(userId, displayName);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (permission != 'editor')
+                        const PopupMenuItem(
+                          value: 'make_editor',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, color: Color(0xFF1DB954), size: 18),
+                              SizedBox(width: 10),
+                              Text('Make Editor', style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      if (permission != 'viewer')
+                        const PopupMenuItem(
+                          value: 'make_viewer',
+                          child: Row(
+                            children: [
+                              Icon(Icons.visibility, color: Colors.blueGrey, size: 18),
+                              SizedBox(width: 10),
+                              Text('Make Viewer', style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      if (collabIndexForListener != -1) ...[
+                        const PopupMenuDivider(height: 1),
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Row(
+                            children: [
+                              Icon(Icons.person_remove, color: Colors.redAccent, size: 18),
+                              SizedBox(width: 10),
+                              Text('Remove', style: TextStyle(color: Colors.redAccent)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  )
+                : null,
           );
         },
       ),
