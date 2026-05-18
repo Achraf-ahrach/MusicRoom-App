@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -38,6 +39,7 @@ public class PlaybackServiceImpl implements PlaybackService {
     private final VoteRepository voteRepo;
     private final EventInviteRepository inviteRepo;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TransactionTemplate transactionTemplate;
 
     private final ScheduledExecutorService scheduler =
             Executors.newScheduledThreadPool(4);
@@ -148,125 +150,136 @@ public class PlaybackServiceImpl implements PlaybackService {
 
     /**
      * Core logic: find the first track in the sorted queue, broadcast it, schedule auto-advance.
+     * Uses TransactionTemplate to ensure a Hibernate session is available even when called
+     * from the scheduled thread pool.
      */
     private void playNextTrack(UUID eventId) {
         try {
-            List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
-
-            // Robust sort logic:
-            if (!entries.isEmpty()) {
-                UUID currentPlayingId = currentlyPlaying.get(eventId);
-                if (currentPlayingId != null) {
-                    // A track is currently playing. Keep it at index 0.
-                    EventPlaylistEntry playingEntry = null;
-                    List<EventPlaylistEntry> remaining = new ArrayList<>();
-                    for (EventPlaylistEntry entry : entries) {
-                        if (entry.getId().equals(currentPlayingId)) {
-                            playingEntry = entry;
-                        } else {
-                            remaining.add(entry);
-                        }
-                    }
-
-                    // Sort remaining by votes desc, then suggestedAt asc
-                    remaining.sort((a, b) -> {
-                        int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
-                        if (voteCompare != 0) return voteCompare;
-                        return a.getSuggestedAt().compareTo(b.getSuggestedAt());
-                    });
-
-                    entries = new ArrayList<>();
-                    if (playingEntry != null) {
-                        entries.add(playingEntry);
-                    }
-                    entries.addAll(remaining);
-                } else {
-                    // No track is currently playing. Sort the ENTIRE list by votes desc, then suggestedAt asc
-                    entries = new ArrayList<>(entries);
-                    entries.sort((a, b) -> {
-                        int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
-                        if (voteCompare != 0) return voteCompare;
-                        return a.getSuggestedAt().compareTo(b.getSuggestedAt());
-                    });
-                }
-            }
-
-            if (entries.isEmpty()) {
-                log.info("Event {} queue is empty, waiting for new tracks", eventId);
-                currentlyPlaying.remove(eventId);
-                trackStartTimes.remove(eventId);
-
-                // Broadcast QUEUE_EMPTY so clients know nothing is playing
-                PlaybackMessage emptyMsg = new PlaybackMessage();
-                emptyMsg.setCommand("QUEUE_EMPTY");
-                messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playback", emptyMsg);
-                return;
-            }
-
-            EventPlaylistEntry firstEntry = entries.get(0);
-            Track track = firstEntry.getTrack();
-            currentlyPlaying.put(eventId, firstEntry.getId());
-            trackStartTimes.put(eventId, System.currentTimeMillis());
-
-            // Build the audioUrl from Audius
-            String audioUrl = "https://discoveryprovider.audius.co/v1/tracks/"
-                    + track.getExternalId() + "/stream?app_name=MusicRoomApp";
-
-            String suggestedByName = firstEntry.getSuggestedBy() != null
-                    ? firstEntry.getSuggestedBy().getDisplayName() : "";
-
-            // Broadcast PLAY_TRACK to all listeners
-            PlaybackMessage playMsg = new PlaybackMessage();
-            playMsg.setTrackId(track.getExternalId());
-            playMsg.setTitle(track.getTitle());
-            playMsg.setArtist(track.getArtist());
-            playMsg.setCoverUrl(track.getCoverUrl() != null ? track.getCoverUrl() : "");
-            playMsg.setAudioUrl(audioUrl);
-            playMsg.setSuggestedByName(suggestedByName);
-            playMsg.setCommand("PLAY_TRACK");
-            playMsg.setPositionMs(0L);
-
-            messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playback", playMsg);
-            log.info("Event {} now playing: \"{}\" by {} (duration: {}ms)",
-                    eventId, track.getTitle(), track.getArtist(), track.getDurationMs());
-
-            // Also broadcast EVENT_STARTED status
-            Map<String, Object> statusPayload = new HashMap<>();
-            statusPayload.put("type", "EVENT_STARTED");
-            statusPayload.put("isPlaying", true);
-            statusPayload.put("currentTrackId", track.getExternalId());
-            messagingTemplate.convertAndSend("/topic/event/" + eventId + "/updates", statusPayload);
-
-            // Schedule auto-advance after track duration
-            int durationMs = track.getDurationMs() != null ? track.getDurationMs() : 180_000; // default 3 min
-            // Add a small buffer (2 seconds) for network/processing
-            long delayMs = durationMs + 2000L;
-
-            // Cancel any existing scheduled advance
-            ScheduledFuture<?> existing = scheduledAdvances.remove(eventId);
-            if (existing != null) {
-                existing.cancel(false);
-            }
-
-            ScheduledFuture<?> future = scheduler.schedule(
-                    () -> advanceTrack(eventId, firstEntry.getId()),
-                    delayMs,
-                    TimeUnit.MILLISECONDS
-            );
-            scheduledAdvances.put(eventId, future);
-
-            log.info("Event {} auto-advance scheduled in {}ms", eventId, delayMs);
-
+            transactionTemplate.executeWithoutResult(status -> {
+                doPlayNextTrack(eventId);
+            });
         } catch (Exception e) {
             log.error("Error playing next track for event {}", eventId, e);
         }
     }
 
     /**
+     * The actual playNextTrack logic, executed inside a transaction.
+     */
+    private void doPlayNextTrack(UUID eventId) {
+        // Use eager-fetch query to avoid LazyInitializationException
+        List<EventPlaylistEntry> entries = playlistRepo.findByEventIdWithTrackEager(eventId);
+
+        // Robust sort logic:
+        if (!entries.isEmpty()) {
+            UUID currentPlayingId = currentlyPlaying.get(eventId);
+            if (currentPlayingId != null) {
+                // A track is currently playing. Keep it at index 0.
+                EventPlaylistEntry playingEntry = null;
+                List<EventPlaylistEntry> remaining = new ArrayList<>();
+                for (EventPlaylistEntry entry : entries) {
+                    if (entry.getId().equals(currentPlayingId)) {
+                        playingEntry = entry;
+                    } else {
+                        remaining.add(entry);
+                    }
+                }
+
+                // Sort remaining by votes desc, then suggestedAt asc
+                remaining.sort((a, b) -> {
+                    int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                    if (voteCompare != 0) return voteCompare;
+                    return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+                });
+
+                entries = new ArrayList<>();
+                if (playingEntry != null) {
+                    entries.add(playingEntry);
+                }
+                entries.addAll(remaining);
+            } else {
+                // No track is currently playing. Sort the ENTIRE list by votes desc, then suggestedAt asc
+                entries = new ArrayList<>(entries);
+                entries.sort((a, b) -> {
+                    int voteCompare = Integer.compare(b.getVoteCount(), a.getVoteCount());
+                    if (voteCompare != 0) return voteCompare;
+                    return a.getSuggestedAt().compareTo(b.getSuggestedAt());
+                });
+            }
+        }
+
+        if (entries.isEmpty()) {
+            log.info("Event {} queue is empty, waiting for new tracks", eventId);
+            currentlyPlaying.remove(eventId);
+            trackStartTimes.remove(eventId);
+
+            // Broadcast QUEUE_EMPTY so clients know nothing is playing
+            PlaybackMessage emptyMsg = new PlaybackMessage();
+            emptyMsg.setCommand("QUEUE_EMPTY");
+            messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playback", emptyMsg);
+            return;
+        }
+
+        EventPlaylistEntry firstEntry = entries.get(0);
+        Track track = firstEntry.getTrack();
+        currentlyPlaying.put(eventId, firstEntry.getId());
+        trackStartTimes.put(eventId, System.currentTimeMillis());
+
+        // Build the audioUrl from Audius
+        String audioUrl = "https://discoveryprovider.audius.co/v1/tracks/"
+                + track.getExternalId() + "/stream?app_name=MusicRoomApp";
+
+        String suggestedByName = firstEntry.getSuggestedBy() != null
+                ? firstEntry.getSuggestedBy().getDisplayName() : "";
+
+        // Broadcast PLAY_TRACK to all listeners
+        PlaybackMessage playMsg = new PlaybackMessage();
+        playMsg.setTrackId(track.getExternalId());
+        playMsg.setTitle(track.getTitle());
+        playMsg.setArtist(track.getArtist());
+        playMsg.setCoverUrl(track.getCoverUrl() != null ? track.getCoverUrl() : "");
+        playMsg.setAudioUrl(audioUrl);
+        playMsg.setSuggestedByName(suggestedByName);
+        playMsg.setCommand("PLAY_TRACK");
+        playMsg.setPositionMs(0L);
+
+        messagingTemplate.convertAndSend("/topic/event/" + eventId + "/playback", playMsg);
+        log.info("Event {} now playing: \"{}\" by {} (duration: {}ms)",
+                eventId, track.getTitle(), track.getArtist(), track.getDurationMs());
+
+        // Also broadcast EVENT_STARTED status
+        Map<String, Object> statusPayload = new HashMap<>();
+        statusPayload.put("type", "EVENT_STARTED");
+        statusPayload.put("isPlaying", true);
+        statusPayload.put("currentTrackId", track.getExternalId());
+        messagingTemplate.convertAndSend("/topic/event/" + eventId + "/updates", statusPayload);
+
+        // Schedule auto-advance after track duration
+        int durationMs = track.getDurationMs() != null ? track.getDurationMs() : 180_000; // default 3 min
+        // Add a small buffer (2 seconds) for network/processing
+        long delayMs = durationMs + 2000L;
+
+        // Cancel any existing scheduled advance
+        ScheduledFuture<?> existing = scheduledAdvances.remove(eventId);
+        if (existing != null) {
+            existing.cancel(false);
+        }
+
+        ScheduledFuture<?> future = scheduler.schedule(
+                () -> advanceTrack(eventId, firstEntry.getId()),
+                delayMs,
+                TimeUnit.MILLISECONDS
+        );
+        scheduledAdvances.put(eventId, future);
+
+        log.info("Event {} auto-advance scheduled in {}ms", eventId, delayMs);
+    }
+
+    /**
      * Called when a track's duration has elapsed.
      * Removes the finished track and plays the next one.
+     * Uses TransactionTemplate to ensure proper Hibernate session from scheduled threads.
      */
-    @Transactional
     public void advanceTrack(UUID eventId, UUID finishedEntryId) {
         if (!activeEvents.contains(eventId)) {
             log.info("Event {} is no longer active, skipping advance", eventId);
@@ -281,21 +294,23 @@ public class PlaybackServiceImpl implements PlaybackService {
         }
 
         try {
-            // Delete the finished track from the queue
-            Optional<EventPlaylistEntry> entryOpt = playlistRepo.findById(finishedEntryId);
-            if (entryOpt.isPresent()) {
-                playlistRepo.delete(entryOpt.get());
-                playlistRepo.flush();
-                log.info("Event {} removed finished track {}", eventId, finishedEntryId);
+            // Delete the finished track inside a transaction
+            transactionTemplate.executeWithoutResult(status -> {
+                Optional<EventPlaylistEntry> entryOpt = playlistRepo.findById(finishedEntryId);
+                if (entryOpt.isPresent()) {
+                    playlistRepo.delete(entryOpt.get());
+                    playlistRepo.flush();
+                    log.info("Event {} removed finished track {}", eventId, finishedEntryId);
 
-                // Clear the currently playing map for this event since it finished
-                currentlyPlaying.remove(eventId);
+                    // Clear the currently playing map for this event since it finished
+                    currentlyPlaying.remove(eventId);
 
-                // Broadcast the updated playlist
-                broadcastPlaylistUpdate(eventId);
-            }
+                    // Broadcast the updated playlist
+                    broadcastPlaylistUpdate(eventId);
+                }
+            });
 
-            // Play the next track
+            // Play the next track (also wrapped in its own transaction)
             playNextTrack(eventId);
 
         } catch (Exception e) {
@@ -310,7 +325,8 @@ public class PlaybackServiceImpl implements PlaybackService {
      */
     private void broadcastPlaylistUpdate(UUID eventId) {
         try {
-            List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
+            // Use eager-fetch query to avoid LazyInitializationException
+            List<EventPlaylistEntry> entries = playlistRepo.findByEventIdWithTrackEager(eventId);
             UUID currentPlayingId = currentlyPlaying.get(eventId);
             if (!entries.isEmpty()) {
                 if (currentPlayingId != null) {
@@ -428,5 +444,10 @@ public class PlaybackServiceImpl implements PlaybackService {
                 .externalId(entry.getTrack().getExternalId())
                 .votedUsers(votedList)
                 .build();
+    }
+
+    @Override
+    public UUID getCurrentlyPlayingEntryId(UUID eventId) {
+        return currentlyPlaying.get(eventId);
     }
 }

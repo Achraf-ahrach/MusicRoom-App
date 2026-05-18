@@ -226,27 +226,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     debugPrint('--- event_detail_screen: _onLocalTrackCompleted triggered');
     if (!mounted) return;
 
-    // Only owners and editors have control to trigger a skip/advance on the server
-    final isController = _userRole == 'owner' || _userRole == 'editor';
-    if (_isEventPlaying && isController) {
+    // During live events, do NOT send NEXT_TRACK to the server.
+    // The server's scheduled timer already handles auto-advance based on track duration.
+    // Sending NEXT_TRACK from the client would race with the server timer,
+    // causing double-deletes (removing more than just the finished track).
+    if (_isEventPlaying) {
       debugPrint(
-        '--- event_detail_screen: user has playback control, sending NEXT_TRACK command to server',
+        '--- event_detail_screen: live event active — waiting for server auto-advance (no client NEXT_TRACK)',
       );
-      if (_stompClient != null && _isWsConnected) {
-        final token = Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).currentUser?.accessToken;
-        final payload = {
-          'command': 'NEXT_TRACK',
-          'trackId': _audioProvider.currentTrack?.id,
-        };
-        _stompClient?.send(
-          destination: '/app/event/${widget.eventId}/playback',
-          body: jsonEncode(payload),
-          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
-        );
-      }
+      return;
     }
   }
 

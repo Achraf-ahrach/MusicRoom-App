@@ -43,4 +43,9 @@ public interface PlaybackService {
      * Get rich playback status including isPlaying and positionMs.
      */
     java.util.Map<String, Object> getPlaybackStatus(UUID eventId);
+
+    /**
+     * Get the ID of the playlist entry currently playing for an event, or null if none.
+     */
+    UUID getCurrentlyPlayingEntryId(UUID eventId);
 }
