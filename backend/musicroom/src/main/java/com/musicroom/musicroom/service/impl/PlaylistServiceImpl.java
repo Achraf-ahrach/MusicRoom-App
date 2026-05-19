@@ -15,6 +15,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import com.musicroom.musicroom.exception.BadRequestException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.musicroom.musicroom.dto.websocket.PlaylistUpdateMessage;
+import com.musicroom.musicroom.dto.websocket.PlaylistMessageType;
 import java.io.IOException;
 
 import java.util.List;
@@ -30,6 +33,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     private final PlaylistInviteRepository inviteRepo;
     private final UserRepository userRepo;
     private final com.musicroom.musicroom.repository.SavedPlaylistRepository savedPlaylistRepo;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -146,7 +150,17 @@ public class PlaylistServiceImpl implements PlaylistService {
         if (request.getVisibility() != null) playlist.setVisibility(request.getVisibility());
         if (request.getLicenseType() != null) playlist.setLicenseType(request.getLicenseType());
 
+        playlist.setVersion(playlist.getVersion() + 1);
         playlistRepo.save(playlist);
+
+        PlaylistUpdateMessage updateMessage = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.VISIBILITY_CHANGED)
+                .playlistId(playlistId)
+                .version(playlist.getVersion())
+                .userId(userId)
+                .build();
+        broadcast(playlistId, updateMessage);
+
         return toDto(playlist);
     }
 
@@ -186,6 +200,17 @@ public class PlaylistServiceImpl implements PlaylistService {
         invite.setUser(user);
         invite.setPermission(request.getPermission() != null ? request.getPermission() : "editor");
         inviteRepo.save(invite);
+
+        playlist.setVersion(playlist.getVersion() + 1);
+        playlistRepo.save(playlist);
+
+        PlaylistUpdateMessage updateMessage = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.COLLABORATOR_UPDATED)
+                .playlistId(playlistId)
+                .version(playlist.getVersion())
+                .userId(ownerId)
+                .build();
+        broadcast(playlistId, updateMessage);
     }
 
     @Override
@@ -343,6 +368,17 @@ public class PlaylistServiceImpl implements PlaylistService {
 
         invite.setPermission(permission);
         inviteRepo.save(invite);
+
+        playlist.setVersion(playlist.getVersion() + 1);
+        playlistRepo.save(playlist);
+
+        PlaylistUpdateMessage updateMessage = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.COLLABORATOR_UPDATED)
+                .playlistId(playlistId)
+                .version(playlist.getVersion())
+                .userId(ownerId)
+                .build();
+        broadcast(playlistId, updateMessage);
     }
 
     @Override
@@ -359,5 +395,23 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
 
         inviteRepo.delete(invite);
+
+        playlist.setVersion(playlist.getVersion() + 1);
+        playlistRepo.save(playlist);
+
+        PlaylistUpdateMessage updateMessage = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.COLLABORATOR_UPDATED)
+                .playlistId(playlistId)
+                .version(playlist.getVersion())
+                .userId(ownerId)
+                .build();
+        broadcast(playlistId, updateMessage);
+    }
+
+    private void broadcast(UUID playlistId, PlaylistUpdateMessage message) {
+        messagingTemplate.convertAndSend(
+                "/topic/playlist/" + playlistId,
+                message
+        );
     }
 }

@@ -193,6 +193,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         _tracks = updatedTracks;
                       });
                     }
+                  } else if (type == 'VISIBILITY_CHANGED' || type == 'COLLABORATOR_UPDATED') {
+                    _fetchPlaylist();
                   }
 
                   // Sync version
