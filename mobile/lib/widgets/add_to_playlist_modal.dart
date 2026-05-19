@@ -224,7 +224,14 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
                   return const Center(child: CircularProgressIndicator(color: Colors.white));
                 }
 
-                if (playlistProvider.playlists.isEmpty) {
+                final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+                final filteredPlaylists = playlistProvider.playlists.where((playlist) {
+                  final isOwner = playlist.ownerId == currentUser?.id || playlist.permission == 'owner';
+                  final isEditor = playlist.permission == 'editor';
+                  return isOwner || isEditor;
+                }).toList();
+
+                if (filteredPlaylists.isEmpty) {
                   final message = playlistProvider.errorMessage != null
                       ? 'Could not load playlists from backend.\nYou can still create a new one.'
                       : 'No playlists yet.';
@@ -238,11 +245,11 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
                 }
 
                 return ListView.separated(
-                  itemCount: playlistProvider.playlists.length,
+                  itemCount: filteredPlaylists.length,
                   separatorBuilder: (_, __) =>
                       Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
                   itemBuilder: (context, index) {
-                    final playlist = playlistProvider.playlists[index];
+                    final playlist = filteredPlaylists[index];
                     final title = playlist.title.trim().isEmpty ? 'Untitled playlist' : playlist.title;
                     final creator = playlist.creatorName.trim().isEmpty ? 'Unknown creator' : playlist.creatorName;
 

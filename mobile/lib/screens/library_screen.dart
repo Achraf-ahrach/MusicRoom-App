@@ -61,15 +61,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final currentUserId = auth.currentUser?.id ?? '';
 
-    // My Playlists: playlists owned by current user
+    // My Playlists: playlists owned by current user or where they are an editor
     final myPlaylists = playlistProvider.playlists
-        .where((p) => p.ownerId == currentUserId)
+        .where((p) {
+          final isOwner = p.ownerId == currentUserId || p.permission == 'owner';
+          final isEditor = p.permission == 'editor';
+          return isOwner || isEditor;
+        })
         .map((p) => _toItem(p, isSaved: false))
         .toList();
 
-    // Saved Playlists: exclude ones already owned by me (no duplicates)
+    // Saved Playlists: exclude ones already owned by me or where I am an editor (no duplicates)
     final savedItems = _savedPlaylists
-        .where((p) => p.ownerId != currentUserId)
+        .where((p) => p.ownerId != currentUserId && p.permission != 'editor')
         .map((p) => _toItem(p, isSaved: true))
         .toList();
 
@@ -94,12 +98,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Map<String, dynamic> _toItem(Playlist p, {required bool isSaved}) {
+    final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.id ?? '';
     return {
       'id': p.id,
       'title': p.title.isEmpty ? 'Untitled Playlist' : p.title,
       'subtitle': isSaved
           ? 'Saved • ${p.creatorName.isEmpty ? 'Unknown' : p.creatorName}'
-          : 'Playlist • ${p.creatorName.isEmpty ? 'You' : p.creatorName}',
+          : p.ownerId == currentUserId
+              ? 'Playlist • You'
+              : 'Playlist • ${p.creatorName.isEmpty ? 'Unknown' : p.creatorName}',
       'image': p.imageUrl ??
           'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
       'isCircular': false,
