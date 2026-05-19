@@ -68,16 +68,22 @@ class HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchData() async {
-    await _fetchTracks();
+  Future<void> _fetchData({bool showLoadingSpinner = true}) async {
+    await _fetchTracks(showLoadingSpinner: showLoadingSpinner);
   }
 
-  Future<void> _fetchEvents(String token) async {
+  Future<void> _fetchEvents(String token, {bool showLoadingSpinner = true}) async {
     try {
-      setState(() {
-        isLoadingEvents = true;
-        eventError = null;
-      });
+      if (showLoadingSpinner) {
+        setState(() {
+          isLoadingEvents = true;
+          eventError = null;
+        });
+      } else {
+        setState(() {
+          eventError = null;
+        });
+      }
       final fetchedEvents = await _userService.getAllEvents(token);
       if (mounted) {
         setState(() {
@@ -257,29 +263,54 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
 
-  Future<void> _fetchTracks() async {
+  Future<void> _fetchTracks({bool showLoadingSpinner = true}) async {
     try {
-      setState(() {
-        isLoadingTracks = true;
-        trackError = null;
-      });
+      if (showLoadingSpinner) {
+        setState(() {
+          isLoadingTracks = true;
+          trackError = null;
+        });
+      } else {
+        setState(() {
+          trackError = null;
+        });
+      }
       final futures = await Future.wait([
         _audiusService.getTrendingTracks(),
         _audiusService.getRandomTracks(),
       ]);
-      if (mounted)
+      if (mounted) {
         setState(() {
           trendingTracks = futures[0];
           randomTracks = futures[1];
           isLoadingTracks = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           trackError = e.toString();
           isLoadingTracks = false;
         });
+      }
     }
+  }
+
+  Future<void> handleRefresh() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.currentUser?.accessToken;
+    
+    final List<Future<dynamic>> futures = [
+      _fetchData(showLoadingSpinner: false),
+    ];
+    
+    if (token != null) {
+      futures.add(Provider.of<UserProfileProvider>(context, listen: false).fetchProfile(token));
+      futures.add(Provider.of<PlaylistProvider>(context, listen: false).loadPlaylists(authProvider.currentUser));
+      futures.add(_fetchEvents(token, showLoadingSpinner: false));
+    }
+    
+    await Future.wait(futures);
   }
 
   @override
@@ -301,9 +332,15 @@ class _HomeContent extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: Colors.black,
-          body: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          body: RefreshIndicator(
+            color: Colors.green,
+            backgroundColor: AppTheme.background,
+            onRefresh: state.handleRefresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
               SliverAppBar(
                 floating: true,
                 pinned: true,
@@ -838,8 +875,9 @@ class _HomeContent extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
-    );
-  },
+    ),
+  );
+},
 );
   }
 
