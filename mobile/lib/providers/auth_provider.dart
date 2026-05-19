@@ -102,7 +102,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -136,7 +136,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -163,7 +163,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -187,7 +187,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -211,7 +211,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -238,7 +238,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -270,7 +270,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -334,7 +334,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _mapErrorMessage(e.message);
       _isBusy = false;
       notifyListeners();
       return false;
@@ -413,6 +413,14 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  String _mapErrorMessage(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('user not found')) {
+      return 'Email does not exist';
+    }
+    return message;
   }
 
   bool _toBool(dynamic value) {

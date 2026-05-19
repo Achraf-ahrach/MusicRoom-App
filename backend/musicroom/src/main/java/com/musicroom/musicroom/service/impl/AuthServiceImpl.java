@@ -107,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(LoginRequestDTO request, HttpServletRequest httpRequest) {
 
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(() -> new RuntimeException("Email does not exist"));
         
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new RuntimeException("Invalid credentials");
@@ -180,7 +180,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
      public String sendVerificationEmail(SendVerificationEmailDTO request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Email does not exist"));
 
         SecureRandom secureRandom = new SecureRandom();
         String verificationCode = String.format("%06d", secureRandom.nextInt(1000000));
@@ -207,7 +207,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String verifyEmail(VerifyEmailDTO request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Email does not exist"));
 
         if (user.getVerificationCode() == null || !user.getVerificationCode().equals(request.verificationCode())) {
             throw new RuntimeException("Invalid verification code");
@@ -229,7 +229,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
      public String verifyEmailPassReset(VerifyEmailDTO request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Email does not exist"));
 
         if (user.getVerificationCode() == null || !user.getVerificationCode().equals(request.verificationCode())) {
             throw new RuntimeException("Invalid verification code");
@@ -247,7 +247,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String PassResetChange(ResetPassword request, HttpServletRequest httpRequest) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Email does not exist"));
 
         if (user.getVerificationCode() == null || !user.getVerificationCode().equals(request.verificationCode())) {
             throw new RuntimeException("Invalid verification code");

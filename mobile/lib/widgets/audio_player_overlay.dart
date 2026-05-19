@@ -91,38 +91,35 @@ class AudioPlayerOverlay extends StatelessWidget {
                             const SizedBox(height: 24),
                             Center(
                               child: track.imageUrl != null
-                                  ? Hero(
-                                      tag: 'trackThumbnail',
-                                      child: Image.network(
-                                        track.imageUrl!,
-                                        width:
-                                            MediaQuery.of(context).size.width *
-                                            0.8,
-                                        height:
-                                            MediaQuery.of(context).size.width *
-                                            0.8,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                Container(
-                                                  width:
-                                                      MediaQuery.of(
-                                                        context,
-                                                      ).size.width *
-                                                      0.8,
-                                                  height:
-                                                      MediaQuery.of(
-                                                        context,
-                                                      ).size.width *
-                                                      0.8,
-                                                  color: Colors.grey[800],
-                                                  child: const Icon(
-                                                    Icons.music_note,
-                                                    color: Colors.grey,
-                                                    size: 100,
-                                                  ),
+                                  ? Image.network(
+                                      track.imageUrl!,
+                                      width:
+                                          MediaQuery.of(context).size.width *
+                                          0.8,
+                                      height:
+                                          MediaQuery.of(context).size.width *
+                                          0.8,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Container(
+                                                width:
+                                                    MediaQuery.of(
+                                                      context,
+                                                    ).size.width *
+                                                    0.8,
+                                                height:
+                                                    MediaQuery.of(
+                                                      context,
+                                                    ).size.width *
+                                                    0.8,
+                                                color: Colors.grey[800],
+                                                child: const Icon(
+                                                  Icons.music_note,
+                                                  color: Colors.grey,
+                                                  size: 100,
                                                 ),
-                                      ),
+                                              ),
                                     )
                                   : Container(
                                       width:
@@ -359,22 +356,19 @@ class AudioPlayerOverlay extends StatelessWidget {
                 children: [
                   const SizedBox(width: 8),
                   if (track.imageUrl != null)
-                    Hero(
-                      tag: 'trackThumbnail',
-                      child: Image.network(
-                        track.imageUrl!,
+                    Image.network(
+                      track.imageUrl!,
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
                         width: 44,
                         height: 44,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 44,
-                          height: 44,
-                          color: Colors.grey[800],
-                          child: const Icon(
-                            Icons.music_note,
-                            color: Colors.grey,
-                            size: 24,
-                          ),
+                        color: Colors.grey[800],
+                        child: const Icon(
+                          Icons.music_note,
+                          color: Colors.grey,
+                          size: 24,
                         ),
                       ),
                     ),

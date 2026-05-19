@@ -37,6 +37,9 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
 
   final AuthProvider authProvider;
 
+  /// Tracks previous auth status to safely coordinate imperative pops.
+  AuthStatus _prevAuthStatus = AuthStatus.loading;
+
   /// Tracks which auth sub-screen is visible.
   AuthSubRoute _authSubRoute = AuthSubRoute.landing;
   String? _otpEmail;
@@ -45,7 +48,22 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
 
   AppRouterDelegate({required this.authProvider}) {
     // Rebuild navigation whenever auth state changes.
-    authProvider.addListener(notifyListeners);
+    authProvider.addListener(_handleAuthStateChanged);
+  }
+
+  void _handleAuthStateChanged() {
+    final currentStatus = authProvider.authStatus;
+    if (currentStatus == AuthStatus.unauthenticated &&
+        _prevAuthStatus == AuthStatus.authenticated) {
+      // Clear any imperatively pushed routes (like ProfileScreen, SettingsScreen, dialogs)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (navigatorKey.currentState != null && navigatorKey.currentState!.canPop()) {
+          navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        }
+      });
+    }
+    _prevAuthStatus = currentStatus;
+    notifyListeners();
   }
 
   // ── Public navigation methods (called from screens) ───────────────────
@@ -106,9 +124,11 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
         // When a page is removed (popped), reset to auth landing
         // if we were showing login or signup.
         if (_authSubRoute != AuthSubRoute.landing) {
-          authProvider.clearError();
-          _authSubRoute = AuthSubRoute.landing;
-          notifyListeners();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            authProvider.clearError();
+            _authSubRoute = AuthSubRoute.landing;
+            notifyListeners();
+          });
         }
       },
     );
@@ -192,7 +212,7 @@ class AppRouterDelegate extends RouterDelegate<RouteInformation>
 
   @override
   void dispose() {
-    authProvider.removeListener(notifyListeners);
+    authProvider.removeListener(_handleAuthStateChanged);
     super.dispose();
   }
 }

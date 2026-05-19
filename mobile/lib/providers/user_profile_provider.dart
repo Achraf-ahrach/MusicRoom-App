@@ -38,7 +38,7 @@ class UserProfileProvider with ChangeNotifier {
     try {
       return await action(currentToken);
     } catch (e) {
-      if (e.toString().contains('401') || e.toString().contains('403')) {
+      if (e.toString().contains('401') || e.toString().contains('403') || e.toString().contains('404')) {
         final success = await auth.refreshTokens();
         if (success) {
           currentToken = auth.currentUser?.accessToken ?? '';

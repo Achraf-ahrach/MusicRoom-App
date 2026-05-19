@@ -9,6 +9,8 @@ import '../models/playlist_model.dart';
 import '../models/track_model.dart';
 
 class PlaylistService {
+  String get effectiveBaseUrl => _effectiveBaseUrl;
+
   String get _effectiveBaseUrl {
     final url = dotenv.env['API_URL'];
     if (url != null && url.isNotEmpty) {

@@ -286,11 +286,11 @@ Future<Map<String, String>> _getDeviceInfo() async {
   String _extractErrorMessage(dynamic decoded, String fallback) {
     if (decoded is Map) {
       final map = Map<String, dynamic>.from(decoded);
-      final error = map['error'];
-      if (error is String && error.trim().isNotEmpty) return error;
-
       final message = map['message'];
       if (message is String && message.trim().isNotEmpty) return message;
+
+      final error = map['error'];
+      if (error is String && error.trim().isNotEmpty) return error;
 
       final detail = map['detail'];
       if (detail is String && detail.trim().isNotEmpty) return detail;

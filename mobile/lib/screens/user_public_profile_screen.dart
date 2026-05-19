@@ -227,6 +227,7 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                                     'id': p.id,
                                     'creatorName': p.creatorName,
                                     'imageUrl': p.imageUrl,
+                                    'trackCount': p.trackCount,
                                     'playlist': p,
                                   }).toList(),
                                 ),

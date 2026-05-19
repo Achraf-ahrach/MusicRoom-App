@@ -175,135 +175,123 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // ── 4. Auth Content (Fixed position, revealed by the wave) ───────────
+          // ── 4. Auth Content ─────────────────────────────────────────────────
           Positioned.fill(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_waveController, _riseController]),
-              builder: (context, child) {
-                return ClipPath(
-                  clipper: _RisingBlackWavesClipper(
-                    _waveController.value,
-                    _riseController.value,
-                  ),
-                  child: child,
-                );
-              },
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: size.height * 0.30),
-                      Text(
-                        'WELCOME TO\nMUSICROOM',
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: size.height * 0.30),
+                    Text(
+                      'WELCOME TO\nMUSICROOM',
+                      style: _modernStyle(
+                        fontSize: 60,
+                        isTitle: true,
+                        height: 0.95,
+                        letterSpacing: -1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    RichText(
+                      text: TextSpan(
                         style: _modernStyle(
-                          fontSize: 60,
-                          isTitle: true,
-                          height: 0.95,
-                          letterSpacing: -1.0,
+                          color: AppTheme.textSecondary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          height: 1.5,
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      RichText(
-                        text: TextSpan(
-                          style: _modernStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                            height: 1.5,
-                          ),
-                          children: [
-                            const TextSpan(text: 'Sign up for free or '),
-                            TextSpan(
-                              text: 'log in',
-                              style: _modernStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Colors.white,
-                              ),
-                              recognizer: TapGestureRecognizer()
-                                ..onTap = () => widget.routerDelegate.navigateToLogin(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 36),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: () => widget.routerDelegate.navigateToSignup(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.accent,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            'Continue with email',
+                        children: [
+                          const TextSpan(text: 'Sign up for free or '),
+                          TextSpan(
+                            text: 'log in',
                             style: _modernStyle(
+                              color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => widget.routerDelegate.navigateToLogin(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () => widget.routerDelegate.navigateToSignup(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Continue with email',
+                          style: _modernStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Divider(
-                              color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                              thickness: 1,
+                    ),
+                    const SizedBox(height: 28),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            'or',
+                            style: _modernStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Text(
-                              'or',
-                              style: _modernStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: AppTheme.textSecondary.withValues(alpha: 0.3),
+                            thickness: 1,
                           ),
-                          Expanded(
-                            child: Divider(
-                              color: AppTheme.textSecondary.withValues(alpha: 0.3),
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildSocialButton(
-                            onPressed: () async {
-                              final auth = Provider.of<AuthProvider>(context, listen: false);
-                              final success = await auth.signInWithGoogle();
-                              if (!success && context.mounted) {
-                                final message = auth.errorMessage ?? 'Google sign-in failed';
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(message)),
-                                );
-                              }
-                            },
-                            child: const _GoogleLogo(size: 24),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildSocialButton(
+                          onPressed: () async {
+                            final auth = Provider.of<AuthProvider>(context, listen: false);
+                            final success = await auth.signInWithGoogle();
+                            if (!success && context.mounted) {
+                              final message = auth.errorMessage ?? 'Google sign-in failed';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(message)),
+                              );
+                            }
+                          },
+                          child: const _GoogleLogo(size: 24),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                  ],
                 ),
               ),
             ),
@@ -453,6 +441,12 @@ class _RisingBlackWavesClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
+
+    // If the wave is fully risen, do not clip anything to ensure all gestures register perfectly
+    if (riseProgress >= 0.99) {
+      path.addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+      return path;
+    }
 
     final t = animationValue * 2 * pi;
     final dy = size.height * 0.015;

@@ -109,41 +109,116 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    if (auth.errorMessage != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppTheme.error.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: AppTheme.error,
-                              size: 20,
+                    if (auth.errorMessage != null) ...[
+                      if (auth.errorMessage == 'Email does not exist') ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppTheme.error.withValues(alpha: 0.4),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                auth.errorMessage!,
-                                style: const TextStyle(
-                                  color: AppTheme.error,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.error.withValues(alpha: 0.1),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  'assets/email_not_found.png',
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline_rounded,
+                                    color: AppTheme.error,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Email does not exist',
+                                    style: TextStyle(
+                                      color: AppTheme.error,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'This email address is not registered in our system. Please double-check or sign up for a new account.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: () => widget.routerDelegate.navigateToSignup(),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.accent,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                ),
+                                child: const Text('Sign Up instead'),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.error.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppTheme.error.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                color: AppTheme.error,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  auth.errorMessage!,
+                                  style: const TextStyle(
+                                    color: AppTheme.error,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                     const SizedBox(height: 16),
                     SizedBox(
                       height: 52,

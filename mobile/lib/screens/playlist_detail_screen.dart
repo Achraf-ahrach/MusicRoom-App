@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../../models/playlist_model.dart';
 import '../../models/track_model.dart';
 import '../../services/audius_service.dart';
@@ -40,10 +41,109 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   String? _ownerAvatarUrl;
   List<dynamic> _collaborators = [];
 
+  StompClient? _stompClient;
+  bool _isWsConnected = false;
+
   @override
   void initState() {
     super.initState();
     _fetchPlaylist();
+  }
+
+  void _connectWebSocket(String token) {
+    if (_stompClient != null && _isWsConnected) return;
+
+    final playlistService = PlaylistService();
+    final wsUrl = playlistService.effectiveBaseUrl.replaceFirst('http', 'ws') + '/ws';
+    debugPrint('Connecting to Playlist WebSocket: $wsUrl');
+
+    _stompClient = StompClient(
+      config: StompConfig(
+        url: wsUrl,
+        onConnect: (StompFrame frame) {
+          debugPrint('STOMP connected for Playlist ${widget.playlistId}');
+          if (!mounted) return;
+          setState(() {
+            _isWsConnected = true;
+          });
+
+          // Subscribe to playlist updates topic
+          _stompClient?.subscribe(
+            destination: '/topic/playlist/${widget.playlistId}',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                debugPrint('Received playlist update: ${frame.body}');
+                _refreshPlaylistQuietly();
+              }
+            },
+          );
+        },
+        stompConnectHeaders: {'Authorization': 'Bearer $token'},
+        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
+        onDisconnect: (frame) {
+          debugPrint('Playlist STOMP disconnected');
+          if (mounted) {
+            setState(() {
+              _isWsConnected = false;
+            });
+          }
+        },
+        onStompError: (frame) {
+          debugPrint('Playlist STOMP error: ${frame.body}');
+        },
+        onWebSocketError: (error) {
+          debugPrint('Playlist WebSocket error: $error');
+          if (mounted) {
+            setState(() {
+              _isWsConnected = false;
+            });
+          }
+        },
+      ),
+    );
+
+    _stompClient?.activate();
+  }
+
+  Future<void> _refreshPlaylistQuietly() async {
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.accessToken;
+      if (token == null || token.isEmpty) return;
+
+      final playlistService = PlaylistService();
+      final freshPlaylist = await playlistService.getPlaylistById(widget.playlistId, token);
+      final tracks = await playlistService.getPlaylistTracks(widget.playlistId, token);
+      
+      List<dynamic> collaborators = [];
+      try {
+        collaborators = await playlistService.getPlaylistCollaborators(widget.playlistId, token);
+      } catch (e) {
+        debugPrint('Error fetching collaborators: $e');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _playlist = freshPlaylist;
+        _tracks = tracks;
+        _collaborators = collaborators;
+      });
+    } catch (e) {
+      debugPrint('Error quietly refreshing playlist: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('denied') || errStr.contains('unauthorized') || errStr.contains('403') || errStr.contains('401')) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text(
+              'Your access to this playlist has been revoked.',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   Future<void> _fetchPlaylist() async {
@@ -101,6 +201,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           _collaborators = collaborators;
           _isLoading = false;
         });
+
+        if (_stompClient == null || !_isWsConnected) {
+          _connectWebSocket(token);
+        }
         return;
       }
 
@@ -827,6 +931,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _stompClient?.deactivate();
+    super.dispose();
   }
 }
 

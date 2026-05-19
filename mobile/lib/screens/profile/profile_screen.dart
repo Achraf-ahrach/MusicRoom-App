@@ -97,14 +97,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(color: Colors.redAccent),
                 ),
                 onTap: () {
+                  final auth = Provider.of<AuthProvider>(parentContext, listen: false);
                   Navigator.pop(parentContext); // Close bottom sheet
-                  Navigator.pop(
-                    parentContext,
-                  ); // Pop profile screen back to home
-                  Provider.of<AuthProvider>(
-                    parentContext,
-                    listen: false,
-                  ).logout();
+                  auth.logout();
                 },
               ),
             ],
@@ -235,6 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     'id': p.id,
                                     'creatorName': p.creatorName,
                                     'imageUrl': p.imageUrl,
+                                    'trackCount': p.trackCount,
                                     'playlist': p,
                                   }).toList(),
                                 ),
@@ -360,6 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     'id': p.id,
                                     'creatorName': p.creatorName,
                                     'imageUrl': p.imageUrl,
+                                    'trackCount': p.trackCount,
                                     'playlist': p,
                                   }).toList(),
                                 ),

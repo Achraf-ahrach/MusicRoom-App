@@ -8,6 +8,7 @@ class Playlist {
   final String ownerId;
   final String? permission;
   final String? description;
+  final int trackCount;
 
   Playlist({
     required this.id,
@@ -19,6 +20,7 @@ class Playlist {
     this.ownerId = '',
     this.permission,
     this.description,
+    this.trackCount = 0,
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,9 @@ class Playlist {
     final String parsedOwnerId = (json['ownerId'] ?? '').toString();
     final String? parsedPermission = json['permission']?.toString();
     final String? parsedDescription = json['description']?.toString();
+    final int parsedTrackCount = json['trackCount'] is int
+        ? json['trackCount'] as int
+        : int.tryParse('${json['trackCount'] ?? 0}') ?? 0;
 
     return Playlist(
       id: parsedId,
@@ -46,6 +51,7 @@ class Playlist {
       ownerId: parsedOwnerId,
       permission: parsedPermission,
       description: parsedDescription,
+      trackCount: parsedTrackCount,
     );
   }
 }

@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.Authentication;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.musicroom.musicroom.dto.websocket.PlaylistUpdateMessage;
+import com.musicroom.musicroom.dto.websocket.PlaylistMessageType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import com.musicroom.musicroom.exception.BadRequestException;
@@ -30,6 +33,7 @@ public class PlaylistServiceImpl implements PlaylistService {
     private final PlaylistInviteRepository inviteRepo;
     private final UserRepository userRepo;
     private final com.musicroom.musicroom.repository.SavedPlaylistRepository savedPlaylistRepo;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -141,13 +145,28 @@ public class PlaylistServiceImpl implements PlaylistService {
             throw new UnauthorizedException("Not authorized to update this playlist");
         }
 
+        String oldVisibility = playlist.getVisibility();
         if (request.getName() != null) playlist.setName(request.getName());
         if (request.getDescription() != null) playlist.setDescription(request.getDescription());
         if (request.getVisibility() != null) playlist.setVisibility(request.getVisibility());
         if (request.getLicenseType() != null) playlist.setLicenseType(request.getLicenseType());
 
         playlistRepo.save(playlist);
-        return toDto(playlist);
+        PlaylistDto dto = toDto(playlist);
+
+        boolean visibilityChanged = request.getVisibility() != null && !request.getVisibility().equals(oldVisibility);
+        PlaylistMessageType msgType = visibilityChanged ? PlaylistMessageType.VISIBILITY_CHANGED : PlaylistMessageType.PLAYLIST_RELOADED;
+
+        PlaylistUpdateMessage wsMsg = PlaylistUpdateMessage.builder()
+                .type(msgType)
+                .playlistId(playlistId)
+                .version(playlist.getVersion())
+                .userId(userId)
+                .message(playlist.getVisibility())
+                .build();
+        messagingTemplate.convertAndSend("/topic/playlist/" + playlistId, wsMsg);
+
+        return dto;
     }
 
     @Override
@@ -186,6 +205,14 @@ public class PlaylistServiceImpl implements PlaylistService {
         invite.setUser(user);
         invite.setPermission(request.getPermission() != null ? request.getPermission() : "editor");
         inviteRepo.save(invite);
+
+        PlaylistUpdateMessage wsMsg = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.COLLABORATOR_INVITED)
+                .playlistId(playlistId)
+                .userId(ownerId)
+                .message(request.getUserId().toString())
+                .build();
+        messagingTemplate.convertAndSend("/topic/playlist/" + playlistId, wsMsg);
     }
 
     @Override
@@ -343,6 +370,14 @@ public class PlaylistServiceImpl implements PlaylistService {
 
         invite.setPermission(permission);
         inviteRepo.save(invite);
+
+        PlaylistUpdateMessage wsMsg = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.ROLE_CHANGED)
+                .playlistId(playlistId)
+                .userId(ownerId)
+                .message(collaboratorId.toString())
+                .build();
+        messagingTemplate.convertAndSend("/topic/playlist/" + playlistId, wsMsg);
     }
 
     @Override
@@ -359,5 +394,13 @@ public class PlaylistServiceImpl implements PlaylistService {
                 .orElseThrow(() -> new ResourceNotFoundException("Collaborator not found"));
 
         inviteRepo.delete(invite);
+
+        PlaylistUpdateMessage wsMsg = PlaylistUpdateMessage.builder()
+                .type(PlaylistMessageType.COLLABORATOR_REMOVED)
+                .playlistId(playlistId)
+                .userId(ownerId)
+                .message(collaboratorId.toString())
+                .build();
+        messagingTemplate.convertAndSend("/topic/playlist/" + playlistId, wsMsg);
     }
 }

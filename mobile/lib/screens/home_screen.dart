@@ -92,7 +92,7 @@ class HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      if (e.toString().contains('401') || e.toString().contains('403')) {
+      if (e.toString().contains('401') || e.toString().contains('403') || e.toString().contains('404')) {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final success = await authProvider.refreshTokens();
         if (success) {
