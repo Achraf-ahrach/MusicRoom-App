@@ -157,6 +157,7 @@ public class VoteWebSocketServiceImpl implements VoteWebSocketService {
                         entry.getSuggestedBy().getId() : null)
                 .suggestedByName(entry.getSuggestedBy() != null ?
                         entry.getSuggestedBy().getDisplayName() : null)
+                .externalId(entry.getTrack().getExternalId())
                 .votedUsers(votedList)
                 .build();
     }

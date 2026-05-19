@@ -45,8 +45,11 @@ public class EventController {
 
     @Operation(summary = "Détail d'un événement")
     @GetMapping("/{id}")
-    public ResponseEntity<EventDto> getEventById(@PathVariable UUID id) {
-        return ResponseEntity.ok(eventService.getEventById(id));
+    public ResponseEntity<EventDto> getEventById(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(eventService.getEventById(userId, id));
     }
 
     @Operation(summary = "Modifier un événement")
@@ -83,8 +86,10 @@ public class EventController {
     @Operation(summary = "Voir la playlist de l'événement")
     @GetMapping("/{id}/playlist")
     public ResponseEntity<List<PlaylistEntryDto>> getPlaylist(
+            @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id) {
-        return ResponseEntity.ok(eventService.getPlaylist(id));
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        return ResponseEntity.ok(eventService.getPlaylist(userId, id));
     }
 
     @Operation(summary = "Suggérer une track")
@@ -175,14 +180,20 @@ public class EventController {
     @Operation(summary = "Obtenir les auditeurs actifs de l'événement")
     @GetMapping("/{id}/listeners")
     public ResponseEntity<List<java.util.Map<String, Object>>> getActiveListeners(
+            @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        eventService.getEventById(userId, id); // Access guard
         return ResponseEntity.ok(webSocketEventListener.getActiveListeners(id));
     }
 
     @Operation(summary = "Vérifier si l'événement est en cours de lecture")
     @GetMapping("/{id}/playback-status")
     public ResponseEntity<java.util.Map<String, Object>> getPlaybackStatus(
+            @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id) {
+        UUID userId = UUID.fromString(userDetails.getUsername());
+        eventService.getEventById(userId, id); // Access guard
         return ResponseEntity.ok(playbackService.getPlaybackStatus(id));
     }
 }

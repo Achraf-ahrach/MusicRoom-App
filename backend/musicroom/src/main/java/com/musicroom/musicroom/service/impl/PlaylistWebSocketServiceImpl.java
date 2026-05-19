@@ -262,6 +262,7 @@ public class PlaylistWebSocketServiceImpl implements PlaylistWebSocketService {
                 .coverUrl(pt.getTrack().getCoverUrl())
                 .durationMs(pt.getTrack().getDurationMs())
                 .position(pt.getPosition())
+                .externalId(pt.getTrack().getExternalId())
                 .build();
     }
 }

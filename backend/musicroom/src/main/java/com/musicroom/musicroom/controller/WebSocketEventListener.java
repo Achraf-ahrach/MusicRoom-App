@@ -1,6 +1,7 @@
 package com.musicroom.musicroom.controller;
 
 import com.musicroom.musicroom.repository.UserRepository;
+import com.musicroom.musicroom.repository.EventRepository;
 import com.musicroom.musicroom.security.JwtTokenProvider;
 import com.musicroom.musicroom.service.PlaybackService;
 import jakarta.annotation.PreDestroy;
@@ -31,6 +32,7 @@ public class WebSocketEventListener {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final UserRepository userRepo;
+    private final EventRepository eventRepo;
     private final JwtTokenProvider jwtTokenProvider;
     private final PlaybackService playbackService;
     
@@ -196,14 +198,22 @@ public class WebSocketEventListener {
     private void broadcastListenerCount(UUID eventId, int count) {
         Map<String, Object> payload = Map.of("count", count);
         messagingTemplate.convertAndSend("/topic/event/" + eventId + "/listeners", payload);
-        try {
-            messagingTemplate.convertAndSend("/topic/events", Map.of(
-                "type", "LISTENER_COUNT_CHANGED",
-                "eventId", eventId.toString(),
-                "count", count
-            ));
-        } catch (Exception e) {
-            log.error("Failed to broadcast LISTENER_COUNT_CHANGED to /topic/events", e);
+        
+        // Only broadcast globally if the event is public
+        boolean isPublic = eventRepo.findById(eventId)
+                .map(event -> "public".equalsIgnoreCase(event.getVisibility()))
+                .orElse(false);
+
+        if (isPublic) {
+            try {
+                messagingTemplate.convertAndSend("/topic/events", Map.of(
+                    "type", "LISTENER_COUNT_CHANGED",
+                    "eventId", eventId.toString(),
+                    "count", count
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast LISTENER_COUNT_CHANGED to /topic/events", e);
+            }
         }
     }
 }

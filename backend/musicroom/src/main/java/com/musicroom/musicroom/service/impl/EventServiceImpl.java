@@ -65,13 +65,15 @@ public class EventServiceImpl implements EventService {
         eventRepo.save(event);
         EventDto dto = toDto(event);
 
-        try {
-            messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
-                "type", "EVENT_CREATED",
-                "event", dto
-            ));
-        } catch (Exception e) {
-            log.error("Failed to broadcast EVENT_CREATED to /topic/events", e);
+        if ("public".equalsIgnoreCase(event.getVisibility())) {
+            try {
+                messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                    "type", "EVENT_CREATED",
+                    "event", dto
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_CREATED to /topic/events", e);
+            }
         }
 
         return dto;
@@ -86,11 +88,25 @@ public class EventServiceImpl implements EventService {
                 .collect(Collectors.toList());
     }
 
+    private void checkEventAccess(Event event, UUID userId) {
+        String visibility = event.getVisibility() != null ? event.getVisibility() : "public";
+        if ("private".equalsIgnoreCase(visibility)) {
+            boolean isOwner = event.getOwner().getId().equals(userId);
+            if (!isOwner) {
+                boolean isInvited = inviteRepo.existsByEventIdAndUserId(event.getId(), userId);
+                if (!isInvited) {
+                    throw new UnauthorizedException("You do not have access to this private event.");
+                }
+            }
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public EventDto getEventById(UUID eventId) {
+    public EventDto getEventById(UUID userId, UUID eventId) {
         Event event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+        checkEventAccess(event, userId);
         return toDto(event);
     }
 
@@ -114,13 +130,15 @@ public class EventServiceImpl implements EventService {
         eventRepo.save(event);
         EventDto dto = toDto(event);
 
-        try {
-            messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
-                "type", "EVENT_UPDATED",
-                "event", dto
-            ));
-        } catch (Exception e) {
-            log.error("Failed to broadcast EVENT_UPDATED to /topic/events", e);
+        if ("public".equalsIgnoreCase(event.getVisibility())) {
+            try {
+                messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                    "type", "EVENT_UPDATED",
+                    "event", dto
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_UPDATED to /topic/events", e);
+            }
         }
 
         // Broadcast event updates (name, description, visibility)
@@ -146,13 +164,15 @@ public class EventServiceImpl implements EventService {
         event.setActive(false);
         eventRepo.save(event);
 
-        try {
-            messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
-                "type", "EVENT_DELETED",
-                "eventId", eventId.toString()
-            ));
-        } catch (Exception e) {
-            log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+        if ("public".equalsIgnoreCase(event.getVisibility())) {
+            try {
+                messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                    "type", "EVENT_DELETED",
+                    "eventId", eventId.toString()
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+            }
         }
     }
 
@@ -164,13 +184,15 @@ public class EventServiceImpl implements EventService {
             event.setActive(false);
             eventRepo.save(event);
 
-            try {
-                messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
-                    "type", "EVENT_DELETED",
-                    "eventId", eventId.toString()
-                ));
-            } catch (Exception e) {
-                log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+            if ("public".equalsIgnoreCase(event.getVisibility())) {
+                try {
+                    messagingTemplate.convertAndSend("/topic/events", java.util.Map.of(
+                        "type", "EVENT_DELETED",
+                        "eventId", eventId.toString()
+                    ));
+                } catch (Exception e) {
+                    log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+                }
             }
         }
     }
@@ -207,9 +229,10 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PlaylistEntryDto> getPlaylist(UUID eventId) {
-        eventRepo.findById(eventId)
+    public List<PlaylistEntryDto> getPlaylist(UUID userId, UUID eventId) {
+        Event event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+        checkEventAccess(event, userId);
 
         List<EventPlaylistEntry> entries = playlistRepo.findByEventIdOrderBySuggestedAtAsc(eventId);
         if (entries.isEmpty()) {
@@ -376,7 +399,7 @@ public class EventServiceImpl implements EventService {
         }
 
         eventRepo.save(event);
-        return getEventById(eventId);
+        return getEventById(userId, eventId);
     }
 
     @Override

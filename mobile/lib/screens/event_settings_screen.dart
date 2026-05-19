@@ -651,9 +651,8 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                   ],
                 ),
               ),
-              trailing: (isCurrentUserOwner && !isMe)
-                  ? null
-                  : PopupMenuButton<String>(
+              trailing: (isCurrentUserOwner && !isMe && permission != 'owner')
+                  ? PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, color: Colors.white38),
                       color: AppTheme.surface,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -701,7 +700,8 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                           ),
                         ),
                       ],
-                    ),
+                    )
+                  : null,
             );
           }
 
@@ -846,7 +846,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
                 ],
               ),
             ),
-            trailing: (isCurrentUserOwner && !isMe)
+            trailing: (isCurrentUserOwner && !isMe && permission != 'owner')
                 ? PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, color: Colors.white38),
                     color: AppTheme.surface,
