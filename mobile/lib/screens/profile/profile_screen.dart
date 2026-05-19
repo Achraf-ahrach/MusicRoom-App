@@ -61,22 +61,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.share, color: Colors.white),
-                title: const Text(
-                  'Share Profile',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(parentContext);
-                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile link copied to clipboard!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.settings, color: Colors.white),
                 title: const Text(
                   'Settings & Privacy',
