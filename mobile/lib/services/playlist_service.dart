@@ -22,6 +22,8 @@ class PlaylistService {
     return 'http://localhost:8080';
   }
 
+  String get baseUrl => _effectiveBaseUrl;
+
   StompClient? _stompClient;
   Map<String, String> _headers(String token) => {
     'Content-Type': 'application/json',

@@ -12,6 +12,8 @@ import '../../widgets/audio_player_overlay.dart';
 import 'package:musicroom/screens/user_public_profile_screen.dart';
 import 'invite_playlist_friends_screen.dart';
 import '../../services/user_service.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
+import 'dart:convert';
 
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -39,6 +41,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   bool _isSaved = false;
   String? _ownerAvatarUrl;
   List<dynamic> _collaborators = [];
+  StompClient? _stompClient;
+  bool _isWsConnected = false;
 
   @override
   void initState() {
@@ -101,6 +105,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           _collaborators = collaborators;
           _isLoading = false;
         });
+
+        if (_stompClient == null || !_isWsConnected) {
+          _connectWebSocket(token);
+        }
         return;
       }
 
@@ -119,6 +127,123 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _connectWebSocket(String token) {
+    final playlistService = PlaylistService();
+    final wsUrl = playlistService.baseUrl.replaceFirst('http', 'ws') + '/ws';
+    debugPrint('Connecting to Playlist WebSocket: $wsUrl');
+
+    _stompClient = StompClient(
+      config: StompConfig(
+        url: wsUrl,
+        onConnect: (StompFrame frame) {
+          debugPrint('STOMP connected for Playlist ${widget.playlistId}');
+          if (!mounted) return;
+          setState(() {
+            _isWsConnected = true;
+          });
+
+          // Subscribe to topic
+          _stompClient?.subscribe(
+            destination: '/topic/playlist/${widget.playlistId}',
+            callback: (frame) {
+              if (frame.body != null && mounted) {
+                try {
+                  final data = jsonDecode(frame.body!);
+                  final String type = data['type'] ?? '';
+                  debugPrint('Received Playlist WebSocket Message: $type');
+
+                  if (type == 'TRACK_ADDED') {
+                    final trackJson = data['track'];
+                    if (trackJson != null) {
+                      final newTrack = Track.fromPlaylistTrackJson(trackJson);
+                      setState(() {
+                        // Avoid duplicates
+                        if (!_tracks.any((t) => t.playlistTrackId == newTrack.playlistTrackId)) {
+                          _tracks.add(newTrack);
+                        }
+                      });
+                    }
+                  } else if (type == 'TRACK_REMOVED') {
+                    final trackJson = data['track'];
+                    if (trackJson != null) {
+                      final removedId = trackJson['id']?.toString();
+                      setState(() {
+                        _tracks.removeWhere((t) => t.playlistTrackId == removedId);
+                      });
+                    }
+                  } else if (type == 'TRACK_MOVED') {
+                    final List<dynamic>? tracksList = data['tracks'];
+                    if (tracksList != null) {
+                      final List<Track> updatedTracks = tracksList
+                          .map((t) => Track.fromPlaylistTrackJson(t as Map<String, dynamic>))
+                          .toList();
+                      setState(() {
+                        _tracks = updatedTracks;
+                      });
+                    }
+                  } else if (type == 'CONFLICT' || type == 'PLAYLIST_RELOADED') {
+                    final List<dynamic>? tracksList = data['tracks'];
+                    if (tracksList != null) {
+                      final List<Track> updatedTracks = tracksList
+                          .map((t) => Track.fromPlaylistTrackJson(t as Map<String, dynamic>))
+                          .toList();
+                      setState(() {
+                        _tracks = updatedTracks;
+                      });
+                    }
+                  }
+
+                  // Sync version
+                  final version = data['version'] as int?;
+                  if (version != null && _playlist != null) {
+                    setState(() {
+                      _playlist = Playlist(
+                        id: _playlist!.id,
+                        title: _playlist!.title,
+                        description: _playlist!.description,
+                        imageUrl: _playlist!.imageUrl,
+                        creatorName: _playlist!.creatorName,
+                        version: version,
+                        visibility: _playlist!.visibility,
+                        ownerId: _playlist!.ownerId,
+                        permission: _playlist!.permission,
+                      );
+                    });
+                  }
+                } catch (e) {
+                  debugPrint('Error parsing Playlist STOMP frame body: $e');
+                }
+              }
+            },
+          );
+        },
+        stompConnectHeaders: {'Authorization': 'Bearer $token'},
+        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
+        onDisconnect: (frame) {
+          debugPrint('Playlist STOMP disconnected');
+          if (mounted) {
+            setState(() {
+              _isWsConnected = false;
+            });
+          }
+        },
+        onStompError: (frame) {
+          debugPrint('Playlist STOMP error: ${frame.body}');
+        },
+        onWebSocketError: (error) {
+          debugPrint('Playlist WebSocket error: $error');
+          if (mounted) {
+            setState(() {
+              _isWsConnected = false;
+            });
+          }
+        },
+      ),
+    );
+
+    _stompClient?.activate();
   }
 
   Future<void> _toggleSave() async {
@@ -827,6 +952,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _stompClient?.deactivate();
+    super.dispose();
   }
 }
 
