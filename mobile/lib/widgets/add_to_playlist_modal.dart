@@ -5,6 +5,7 @@ import '../models/playlist_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../config/app_theme.dart';
+import '../services/download_service.dart';
 
 class AddToPlaylistModal extends StatefulWidget {
   final Track track;
@@ -20,9 +21,15 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
   final TextEditingController _playlistDescriptionController = TextEditingController();
   bool _isSubmitting = false;
 
+  // Download states
+  bool _isDownloaded = false;
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
+
   @override
   void initState() {
     super.initState();
+    _checkDownloadStatus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
       Provider.of<PlaylistProvider>(context, listen: false).loadPlaylists(user);
@@ -34,6 +41,68 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
     _playlistNameController.dispose();
     _playlistDescriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkDownloadStatus() async {
+    final downloaded = await DownloadService().isTrackDownloaded(widget.track.id);
+    if (mounted) {
+      setState(() {
+        _isDownloaded = downloaded;
+      });
+    }
+  }
+
+  Future<void> _toggleDownload() async {
+    if (_isDownloading) return;
+
+    if (_isDownloaded) {
+      // Remove download
+      await DownloadService().deleteTrack(widget.track.id);
+      setState(() {
+        _isDownloaded = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Removed track from downloads'),
+            backgroundColor: Colors.grey,
+          ),
+        );
+      }
+    } else {
+      // Start download
+      setState(() {
+        _isDownloading = true;
+        _downloadProgress = 0.0;
+      });
+
+      final success = await DownloadService().downloadTrack(
+        widget.track,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _downloadProgress = progress;
+            });
+          }
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+          _isDownloaded = success;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success ? 'Track downloaded successfully!' : 'Failed to download track',
+            ),
+            backgroundColor: success ? const Color(0xFF1DB954) : Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _createAndAdd(BuildContext context) async {
@@ -109,11 +178,20 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
     }
   }
 
+  Widget _defaultTrackIcon() {
+    return Container(
+      color: Colors.white10,
+      width: 48,
+      height: 48,
+      child: const Icon(Icons.music_note, color: Colors.white54),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.78,
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       padding: EdgeInsets.only(
         left: 20,
@@ -143,11 +221,123 @@ class _AddToPlaylistModalState extends State<AddToPlaylistModal> {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Add to Playlist',
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+
+          // Download Action Card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: widget.track.imageUrl != null && widget.track.imageUrl!.isNotEmpty
+                      ? Image.network(
+                          widget.track.imageUrl!,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _defaultTrackIcon(),
+                        )
+                      : _defaultTrackIcon(),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.track.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.track.artistName,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _isDownloading
+                    ? SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              value: _downloadProgress,
+                              strokeWidth: 3,
+                              color: const Color(0xFF1DB954),
+                              backgroundColor: Colors.white12,
+                            ),
+                            Text(
+                              '${(_downloadProgress * 100).round()}%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : TextButton.icon(
+                        onPressed: _toggleDownload,
+                        icon: Icon(
+                          _isDownloaded
+                              ? Icons.download_done_rounded
+                              : Icons.download_rounded,
+                          color: _isDownloaded
+                              ? const Color(0xFF1DB954)
+                              : Colors.white70,
+                          size: 20,
+                        ),
+                        label: Text(
+                          _isDownloaded ? 'Saved' : 'Download',
+                          style: TextStyle(
+                            color: _isDownloaded
+                                ? const Color(0xFF1DB954)
+                                : Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.06),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
+          const Divider(height: 1, color: Colors.white10),
+          const SizedBox(height: 16),
+
+          const Text(
+            'Add to Playlist',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(

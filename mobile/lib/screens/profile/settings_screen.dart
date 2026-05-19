@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
 import 'edit_profile_screen.dart';
@@ -81,6 +82,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'private_session': _privateSession,
       'notifications_enabled': _notificationsEnabled,
     });
+
+    if (success) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('offline_mode', _offlineMode);
+    }
 
     if (!mounted) {
       return;

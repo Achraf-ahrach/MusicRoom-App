@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../models/playlist_model.dart';
+import '../models/track_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/playlist_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/playlist_service.dart';
+import '../services/download_service.dart';
 import '../widgets/library_list_item.dart';
 import 'package:provider/provider.dart';
 import 'profile/profile_screen.dart';
 import '../screens/playlist_detail_screen.dart';
+import '../providers/audio_provider.dart';
 
-enum _LibraryFilter { all, myPlaylists, saved }
+enum _LibraryFilter { all, myPlaylists, saved, downloads }
 
 class LibraryScreen extends StatefulWidget {
   final VoidCallback? onPlusTap;
@@ -28,6 +31,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   List<Playlist> _savedPlaylists = [];
+  List<Track> _downloadedTracks = [];
   bool _isLoadingSaved = false;
 
   @override
@@ -38,6 +42,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       Provider.of<PlaylistProvider>(context, listen: false)
           .loadPlaylists(auth.currentUser);
       _loadSavedPlaylists();
+      _loadDownloadedTracks();
     });
   }
 
@@ -53,6 +58,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       debugPrint('Failed to load saved playlists: $e');
     } finally {
       if (mounted) setState(() => _isLoadingSaved = false);
+    }
+  }
+
+  Future<void> _loadDownloadedTracks() async {
+    try {
+      final tracks = await DownloadService().getDownloadedTracks();
+      if (mounted) setState(() => _downloadedTracks = tracks);
+    } catch (e) {
+      debugPrint('Failed to load downloaded tracks: $e');
     }
   }
 
@@ -77,6 +91,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
         .map((p) => _toItem(p, isSaved: true))
         .toList();
 
+    // Downloaded Tracks
+    final downloadedItems = _downloadedTracks
+        .map((t) => {
+              'id': t.id,
+              'title': t.title.isEmpty ? 'Untitled Track' : t.title,
+              'subtitle': 'Downloaded • ${t.artistName.isEmpty ? 'Unknown' : t.artistName}',
+              'image': t.imageUrl ??
+                  'https://images.unsplash.com/photo-1514525253344-f814d074e015?w=200&h=200&fit=crop',
+              'isCircular': false,
+              'track': t,
+              'isPrivate': false,
+              'isSaved': false,
+              'isDownloadItem': true,
+            })
+        .toList();
+
     List<Map<String, dynamic>> combined;
     switch (_filter) {
       case _LibraryFilter.myPlaylists:
@@ -85,8 +115,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       case _LibraryFilter.saved:
         combined = savedItems;
         break;
+      case _LibraryFilter.downloads:
+        combined = downloadedItems;
+        break;
       case _LibraryFilter.all:
-        combined = [...myPlaylists, ...savedItems];
+        combined = [...myPlaylists, ...savedItems, ...downloadedItems];
         break;
     }
 
@@ -135,6 +168,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             Provider.of<PlaylistProvider>(context, listen: false)
                 .loadPlaylists(auth.currentUser);
             await _loadSavedPlaylists();
+            await _loadDownloadedTracks();
           },
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -168,6 +202,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       _chip('Playlists', _LibraryFilter.myPlaylists),
                       const SizedBox(width: 8),
                       _chip('Saved', _LibraryFilter.saved),
+                      const SizedBox(width: 8),
+                      _chip('Downloads', _LibraryFilter.downloads),
                     ],
                   ),
                 ),
@@ -241,7 +277,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           Text(
                             _filter == _LibraryFilter.saved
                                 ? 'No saved playlists yet'
-                                : 'No playlists yet',
+                                : _filter == _LibraryFilter.downloads
+                                    ? 'No downloaded tracks yet'
+                                    : 'No items yet',
                             style: const TextStyle(
                                 color: Colors.white54, fontSize: 16),
                           ),
@@ -249,7 +287,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           Text(
                             _filter == _LibraryFilter.saved
                                 ? 'Save playlists from their detail page'
-                                : 'Create your first playlist with +',
+                                : _filter == _LibraryFilter.downloads
+                                    ? 'Go to Search and tap on options menu to download tracks'
+                                    : 'Create playlists or download songs',
                             style: const TextStyle(
                                 color: Colors.white30, fontSize: 13),
                           ),
@@ -286,14 +326,54 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           (context, index) {
                             final items = _getFilteredItems(context);
                             final item = items[index];
-                            return LibraryListItem(
+                            final isDownload = item['isDownloadItem'] == true;
+                            final track = isDownload ? item['track'] as Track : null;
+
+                            final listItem = LibraryListItem(
                               title: item['title'],
                               subtitle: item['subtitle'],
                               imageUrl: item['image'],
                               isCircular: item['isCircular'],
                               isPrivate: item['isPrivate'] ?? false,
                               onTap: () => _openPlaylistDetail(context, item),
+                              trailing: isDownload
+                                  ? IconButton(
+                                      icon: const Icon(Icons.more_vert_rounded, color: Colors.white54),
+                                      onPressed: () => _showDownloadOptionsBottomSheet(context, track!),
+                                    )
+                                  : null,
                             );
+
+                            if (isDownload) {
+                              return Dismissible(
+                                key: Key('download_${track!.id}'),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  color: Colors.redAccent,
+                                  child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                                ),
+                                onDismissed: (direction) async {
+                                  await DownloadService().deleteTrack(track.id);
+                                  setState(() {
+                                    _downloadedTracks.removeWhere((t) => t.id == track.id);
+                                  });
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Removed "${track.title}" from downloads'),
+                                        backgroundColor: Colors.redAccent,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: listItem,
+                              );
+                            }
+
+                            return listItem;
                           },
                           childCount: _getFilteredItems(context).length,
                         ),
@@ -309,7 +389,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _chip(String label, _LibraryFilter value) {
     final selected = _filter == value;
     return GestureDetector(
-      onTap: () => setState(() => _filter = value),
+      onTap: () {
+        setState(() => _filter = value);
+        if (value == _LibraryFilter.downloads) {
+          _loadDownloadedTracks();
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -329,9 +414,90 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  void _showDownloadOptionsBottomSheet(BuildContext context, Track track) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[600],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  track.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(color: Colors.white10),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                title: const Text(
+                  'Remove from downloads',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await DownloadService().deleteTrack(track.id);
+                  setState(() {
+                    _downloadedTracks.removeWhere((t) => t.id == track.id);
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Removed "${track.title}" from downloads'),
+                        backgroundColor: Colors.redAccent,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(color: Colors.white10),
+              ListTile(
+                leading: const Icon(Icons.close_rounded, color: Colors.white),
+                title: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildGridItem(Map<String, dynamic> item) {
+    final isDownload = item['isDownloadItem'] == true;
+    final track = isDownload ? item['track'] as Track : null;
+
     return InkWell(
       onTap: () => _openPlaylistDetail(context, item),
+      onLongPress: isDownload
+          ? () => _showDownloadOptionsBottomSheet(context, track!)
+          : null,
       borderRadius: BorderRadius.circular(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,6 +527,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       child: const Text('Saved',
                           style: TextStyle(
                               color: Colors.black,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                if (isDownload)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1DB954).withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('Offline',
+                          style: TextStyle(
+                              color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold)),
                     ),
@@ -400,6 +583,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _openPlaylistDetail(BuildContext context, Map<String, dynamic> item) {
+    if (item['isDownloadItem'] == true) {
+      final track = item['track'] as Track;
+      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+      audioProvider.playTrack(
+        track,
+        playlist: _downloadedTracks,
+        index: _downloadedTracks.indexWhere((t) => t.id == track.id),
+      );
+      return;
+    }
+
     final playlist = item['playlist'];
     if (playlist == null) return;
     Navigator.push(
@@ -411,7 +605,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           useBackend: true,
         ),
       ),
-    ).then((_) => _loadSavedPlaylists()); // Refresh saved state on return
+    ).then((_) {
+      _loadSavedPlaylists(); // Refresh saved state on return
+      _loadDownloadedTracks();
+    });
   }
 
   Widget _buildDefaultHeader(String userName) {

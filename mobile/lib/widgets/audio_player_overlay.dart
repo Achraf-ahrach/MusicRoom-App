@@ -20,6 +20,19 @@ class AudioPlayerOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AudioProvider>(
       builder: (context, audioProvider, child) {
+        if (audioProvider.playbackError != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(audioProvider.playbackError!),
+                backgroundColor: Colors.redAccent,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            audioProvider.clearPlaybackError();
+          });
+        }
+
         if (!audioProvider.hasTrack) return const SizedBox.shrink();
 
         final track = audioProvider.currentTrack!;

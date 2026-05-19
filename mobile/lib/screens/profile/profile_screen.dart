@@ -5,7 +5,6 @@ import '../../providers/user_profile_provider.dart';
 import '../../providers/playlist_provider.dart';
 import 'edit_profile_screen.dart';
 import 'all_playlists_screen.dart';
-import 'settings_screen.dart';
 import '../playlist_detail_screen.dart';
 import 'followers_following_screen.dart';
 
@@ -37,62 +36,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  void _showMoreOptions(BuildContext context) {
-    final parentContext = context;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Small drag handle
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.settings, color: Colors.white),
-                title: const Text(
-                  'Settings & Privacy',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(parentContext);
-                  Navigator.of(parentContext).push(
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
-              ),
-              const Divider(color: Colors.grey),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text(
-                  'Log out',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
-                onTap: () {
-                  final auth = Provider.of<AuthProvider>(parentContext, listen: false);
-                  Navigator.pop(parentContext); // Close bottom sheet
-                  auth.logout();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final profileProvider = Provider.of<UserProfileProvider>(context);
@@ -110,8 +53,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_horiz, color: Colors.white),
-            onPressed: () => _showMoreOptions(context),
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+            },
           ),
         ],
       ),

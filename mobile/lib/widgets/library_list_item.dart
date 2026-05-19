@@ -8,6 +8,7 @@ class LibraryListItem extends StatelessWidget {
   final bool isCircular;
   final bool isPrivate;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   const LibraryListItem({
     super.key,
@@ -17,6 +18,7 @@ class LibraryListItem extends StatelessWidget {
     this.isCircular = false,
     this.isPrivate = false,
     this.onTap,
+    this.trailing,
   });
 
   @override
@@ -89,6 +91,10 @@ class LibraryListItem extends StatelessWidget {
                 ],
               ),
             ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              trailing!,
+            ],
           ],
         ),
       ),

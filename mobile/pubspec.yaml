@@ -46,6 +46,7 @@ dependencies:
   audio_session: ^0.2.3
   just_audio: ^0.10.5
   stomp_dart_client: ^3.0.1
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:

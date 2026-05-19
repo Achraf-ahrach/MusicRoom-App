@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/track_model.dart';
+import '../services/download_service.dart';
 
 class AudioProvider extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -14,6 +16,9 @@ class AudioProvider extends ChangeNotifier {
   bool _isPlayerMaximized = false;
   bool _isMuted = false;
   bool _isLiveEvent = false;
+
+  String? _playbackError;
+  String? get playbackError => _playbackError;
 
   VoidCallback? onTrackCompleted;
   Function(String command, int positionMs)? onPlaybackStateChanged;
@@ -66,6 +71,53 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearPlaybackError() {
+    _playbackError = null;
+    notifyListeners();
+  }
+
+  Future<void> _loadAudioSource(Track track, {int seekToMs = 0}) async {
+    // 1. Check if Offline Mode is active
+    final prefs = await SharedPreferences.getInstance();
+    final isOfflineMode = prefs.getBool('offline_mode') ?? false;
+
+    // 2. Check if track is downloaded
+    final localPath = await DownloadService().getLocalTrackPath(track.id);
+
+    if (isOfflineMode && localPath == null) {
+      _playbackError = "Offline mode active. Playback is limited to downloaded tracks.";
+      notifyListeners();
+      throw Exception("Offline mode: track not downloaded");
+    }
+
+    // Clear previous errors
+    _playbackError = null;
+
+    if (localPath != null) {
+      debugPrint("--- AudioProvider: Playing offline file from $localPath");
+      if (seekToMs > 0) {
+        await _audioPlayer.setFilePath(
+          localPath,
+          initialPosition: Duration(milliseconds: seekToMs),
+        );
+      } else {
+        await _audioPlayer.setFilePath(localPath);
+      }
+    } else if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
+      debugPrint("--- AudioProvider: Streaming from online URL ${track.audioUrl}");
+      if (seekToMs > 0) {
+        await _audioPlayer.setUrl(
+          track.audioUrl!,
+          initialPosition: Duration(milliseconds: seekToMs),
+        );
+      } else {
+        await _audioPlayer.setUrl(track.audioUrl!);
+      }
+    } else {
+      throw Exception("No streamable source or local file found.");
+    }
+  }
+
   Future<void> playTrack(
     Track track, {
     List<Track>? playlist,
@@ -86,28 +138,15 @@ class AudioProvider extends ChangeNotifier {
       "--- AudioProvider.playTrack: playing track id: ${track.id}, title: ${track.title}, URL: ${track.audioUrl}, isLiveEvent: $isLiveEvent, seekToMs: $seekToMs",
     );
 
-    if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
-      try {
-        if (seekToMs > 0) {
-          await _audioPlayer.setUrl(
-            track.audioUrl!,
-            initialPosition: Duration(milliseconds: seekToMs),
-          );
-        } else {
-          await _audioPlayer.setUrl(track.audioUrl!);
-        }
-        await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
-        _audioPlayer.play();
-        if (!_isLiveEvent) {
-          onPlaybackStateChanged?.call('PLAY', seekToMs);
-        }
-      } catch (e) {
-        debugPrint("Error playing audio: $e");
+    try {
+      await _loadAudioSource(track, seekToMs: seekToMs);
+      await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
+      _audioPlayer.play();
+      if (!_isLiveEvent) {
+        onPlaybackStateChanged?.call('PLAY', seekToMs);
       }
-    } else {
-      debugPrint(
-        "--- AudioProvider.playTrack: ERROR: track.audioUrl is empty or null!",
-      );
+    } catch (e) {
+      debugPrint("Error playing audio: $e");
     }
     notifyListeners();
   }
@@ -140,6 +179,7 @@ class AudioProvider extends ChangeNotifier {
       _isLiveEvent = false;
       _position = Duration.zero;
       _duration = Duration.zero;
+      _playbackError = null;
       notifyListeners();
     } catch (e) {
       debugPrint("Error stopping audio: $e");
@@ -150,17 +190,17 @@ class AudioProvider extends ChangeNotifier {
     if (_isLiveEvent) return;
     if (_currentIndex < _playlist.length - 1) {
       _currentIndex++;
-      if (_playlist[_currentIndex].audioUrl != null &&
-          _playlist[_currentIndex].audioUrl!.isNotEmpty) {
-        try {
-          await _audioPlayer.setUrl(_playlist[_currentIndex].audioUrl!);
-          await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
-          _audioPlayer.play();
-          onPlaybackStateChanged?.call('PLAY', 0);
-        } catch (e) {
-          debugPrint("Error playing next audio: \$e");
-          // Optionally, automatically skip to the next track if this one fails
-          // nextTrack();
+      final trackToPlay = _playlist[_currentIndex];
+      try {
+        await _loadAudioSource(trackToPlay);
+        await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
+        _audioPlayer.play();
+        onPlaybackStateChanged?.call('PLAY', 0);
+      } catch (e) {
+        debugPrint("Error playing next audio: $e");
+        // Auto-advance if track fails to load, unless offline mode error occurred
+        if (_playbackError == null) {
+          nextTrack();
         }
       }
       notifyListeners();
@@ -171,18 +211,14 @@ class AudioProvider extends ChangeNotifier {
     if (_isLiveEvent) return;
     if (_currentIndex > 0) {
       _currentIndex--;
-      if (_playlist[_currentIndex].audioUrl != null &&
-          _playlist[_currentIndex].audioUrl!.isNotEmpty) {
-        try {
-          await _audioPlayer.setUrl(_playlist[_currentIndex].audioUrl!);
-          await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
-          _audioPlayer.play();
-          onPlaybackStateChanged?.call('PLAY', 0);
-        } catch (e) {
-          debugPrint("Error playing previous audio: \$e");
-          // Optionally, automatically skip to the previous track if this one fails
-          // previousTrack();
-        }
+      final prevTrack = _playlist[_currentIndex];
+      try {
+        await _loadAudioSource(prevTrack);
+        await _audioPlayer.setVolume(_isMuted ? 0.0 : 1.0);
+        _audioPlayer.play();
+        onPlaybackStateChanged?.call('PLAY', 0);
+      } catch (e) {
+        debugPrint("Error playing previous audio: $e");
       }
       notifyListeners();
     }
