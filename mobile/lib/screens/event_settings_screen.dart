@@ -5,6 +5,7 @@ import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../services/event_service.dart';
 import '../services/user_service.dart';
+import '../services/follow_service.dart';
 import 'user_public_profile_screen.dart';
 
 class EventSettingsScreen extends StatefulWidget {
@@ -48,6 +49,12 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
   Timer? _debounce;
   final Set<String> _invitingIds = {};
 
+  // Followers / Following
+  List<dynamic> _followers = [];
+  List<dynamic> _following = [];
+  bool _loadingFollows = true;
+  int _activeFollowTab = 0; // 0 for Followers, 1 for Following
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +63,7 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
     _descriptionController = TextEditingController(text: widget.description);
     _isPrivate = widget.visibility == 'private';
     _loadCollaborators();
+    _loadFollowData();
   }
 
   @override
@@ -96,6 +104,147 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
         setState(() => _loadingCollaborators = false);
       }
     }
+  }
+
+  // ── Load followers & following for invites ─────────────────────────────────
+  Future<void> _loadFollowData() async {
+    final token = _token;
+    final myId = _currentUserId;
+    if (token == null || myId == null) {
+      if (mounted) {
+        setState(() => _loadingFollows = false);
+      }
+      return;
+    }
+
+    try {
+      final followService = FollowService();
+      final followers = await followService.getFollowers(myId, token);
+      final following = await followService.getFollowing(myId, token);
+
+      if (mounted) {
+        setState(() {
+          _followers = followers;
+          _following = following;
+          _loadingFollows = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading follow data: $e');
+      if (mounted) {
+        setState(() => _loadingFollows = false);
+      }
+    }
+  }
+
+  List<dynamic> _getFilteredFollowList(List<dynamic> rawList) {
+    final collabIds = _collaborators.map((c) => c['userId'] as String).toSet();
+    final myId = _currentUserId;
+    return rawList
+        .where((u) => u['id'] != myId && !collabIds.contains(u['id']))
+        .toList();
+  }
+
+  Widget _buildFollowList(List<dynamic> rawList) {
+    if (_loadingFollows) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.only(top: 40),
+          child: CircularProgressIndicator(color: Color(0xFF1DB954)),
+        ),
+      );
+    }
+
+    final list = _getFilteredFollowList(rawList);
+
+    if (list.isEmpty) {
+      final isFollowersTab = _activeFollowTab == 0;
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isFollowersTab ? Icons.people_outline_rounded : Icons.person_add_alt_rounded,
+                color: Colors.white24,
+                size: 56,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isFollowersTab ? 'No followers to invite' : 'No followed users to invite',
+                style: const TextStyle(color: Colors.white38, fontSize: 15),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Expanded(
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: list.length,
+        separatorBuilder: (_, __) => Divider(
+          color: Colors.white.withOpacity(0.05),
+          height: 1,
+          indent: 72,
+        ),
+        itemBuilder: (context, index) {
+          final user = list[index];
+          final userId = user['id'] as String;
+          final name = user['displayName'] as String? ?? 'User';
+          final avatar = user['avatarUrl'] as String? ?? '';
+          final isInviting = _invitingIds.contains(userId);
+
+          return ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            leading: CircleAvatar(
+              radius: 22,
+              backgroundColor: Colors.white.withOpacity(0.1),
+              backgroundImage:
+                  avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              child: avatar.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white54, size: 22)
+                  : null,
+            ),
+            title: Text(
+              name,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15),
+            ),
+            trailing: SizedBox(
+              width: 90,
+              height: 36,
+              child: ElevatedButton(
+                onPressed: isInviting ? null : () => _inviteUser(userId),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1DB954),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: EdgeInsets.zero,
+                  elevation: 0,
+                ),
+                child: isInviting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Invite',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   // ── Save event settings ────────────────────────────────────────────────────
@@ -969,26 +1118,67 @@ class _EventSettingsScreenState extends State<EventSettingsScreen>
               ),
             ),
           )
-        else if (_searchResults.isEmpty)
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.person_add_alt_1_rounded,
-                      color: Colors.white.withOpacity(0.12), size: 72),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Search for people to invite',
-                    style: TextStyle(
-                        color: Colors.white30,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500),
+        else if (_searchController.text.isEmpty) ...[
+          // Toggle Buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _activeFollowTab = 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _activeFollowTab == 0
+                            ? const Color(0xFF1DB954)
+                            : Colors.white.withOpacity(0.06),
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Followers (${_getFilteredFollowList(_followers).length})',
+                        style: TextStyle(
+                          color: _activeFollowTab == 0 ? Colors.white : Colors.white70,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _activeFollowTab = 1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _activeFollowTab == 1
+                            ? const Color(0xFF1DB954)
+                            : Colors.white.withOpacity(0.06),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Following (${_getFilteredFollowList(_following).length})',
+                        style: TextStyle(
+                          color: _activeFollowTab == 1 ? Colors.white : Colors.white70,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          )
+          ),
+          _buildFollowList(_activeFollowTab == 0 ? _followers : _following),
+        ]
         else
           Expanded(
             child: ListView.separated(
