@@ -139,6 +139,19 @@ public class EventServiceImpl implements EventService {
             } catch (Exception e) {
                 log.error("Failed to broadcast EVENT_UPDATED to /topic/events", e);
             }
+        } else {
+            // Private event: Broadcast update to all invited guests
+            List<EventInvite> invites = inviteRepo.findByEventId(eventId);
+            for (EventInvite invite : invites) {
+                try {
+                    messagingTemplate.convertAndSend("/topic/user/" + invite.getUser().getId() + "/events", java.util.Map.of(
+                        "type", "EVENT_UPDATED",
+                        "event", dto
+                    ));
+                } catch (Exception e) {
+                    log.error("Failed to broadcast EVENT_UPDATED to personal user events topic", e);
+                }
+            }
         }
 
         // Broadcast event updates (name, description, visibility)
@@ -173,6 +186,19 @@ public class EventServiceImpl implements EventService {
             } catch (Exception e) {
                 log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
             }
+        } else {
+            // Private event: Broadcast deletion to all invited guests
+            List<EventInvite> invites = inviteRepo.findByEventId(eventId);
+            for (EventInvite invite : invites) {
+                try {
+                    messagingTemplate.convertAndSend("/topic/user/" + invite.getUser().getId() + "/events", java.util.Map.of(
+                        "type", "EVENT_DELETED",
+                        "eventId", eventId.toString()
+                    ));
+                } catch (Exception e) {
+                    log.error("Failed to broadcast EVENT_DELETED to personal user events topic", e);
+                }
+            }
         }
     }
 
@@ -192,6 +218,19 @@ public class EventServiceImpl implements EventService {
                     ));
                 } catch (Exception e) {
                     log.error("Failed to broadcast EVENT_DELETED to /topic/events", e);
+                }
+            } else {
+                // Private event: Broadcast deletion to all invited guests
+                List<EventInvite> invites = inviteRepo.findByEventId(eventId);
+                for (EventInvite invite : invites) {
+                    try {
+                        messagingTemplate.convertAndSend("/topic/user/" + invite.getUser().getId() + "/events", java.util.Map.of(
+                            "type", "EVENT_DELETED",
+                            "eventId", eventId.toString()
+                        ));
+                    } catch (Exception e) {
+                        log.error("Failed to broadcast EVENT_DELETED to personal user events topic", e);
+                    }
                 }
             }
         }
@@ -222,9 +261,23 @@ public class EventServiceImpl implements EventService {
 
         inviteRepo.save(invite);
 
+        EventDto dto = toDto(event);
+
         // Broadcast role update
         String frontEndRole = "admin".equalsIgnoreCase(invite.getRole()) ? "editor" : "viewer";
         broadcastEventUpdate(eventId, "ROLE_CHANGE", java.util.Map.of("userId", request.getUserId().toString(), "role", frontEndRole));
+
+        // If event is private, broadcast EVENT_CREATED to the invited user's personal topic
+        if (!"public".equalsIgnoreCase(event.getVisibility())) {
+            try {
+                messagingTemplate.convertAndSend("/topic/user/" + request.getUserId() + "/events", java.util.Map.of(
+                    "type", "EVENT_CREATED",
+                    "event", dto
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_CREATED to personal user events topic", e);
+            }
+        }
     }
 
     @Override
@@ -697,6 +750,18 @@ public class EventServiceImpl implements EventService {
 
         // Broadcast role update (role is 'none' when removed)
         broadcastEventUpdate(eventId, "ROLE_CHANGE", java.util.Map.of("userId", collaboratorId.toString(), "role", "none"));
+
+        // If event is private, broadcast EVENT_DELETED to the removed user's personal topic
+        if (!"public".equalsIgnoreCase(event.getVisibility())) {
+            try {
+                messagingTemplate.convertAndSend("/topic/user/" + collaboratorId + "/events", java.util.Map.of(
+                    "type", "EVENT_DELETED",
+                    "eventId", eventId.toString()
+                ));
+            } catch (Exception e) {
+                log.error("Failed to broadcast EVENT_DELETED to personal user events topic on collaborator removal", e);
+            }
+        }
     }
 
     private void broadcastEventUpdate(UUID eventId, String type, java.util.Map<String, Object> extraData) {

@@ -115,6 +115,72 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _processEventWebSocketMessage(String body) {
+    if (!mounted) return;
+    try {
+      final data = jsonDecode(body);
+      final String type = data['type'] ?? '';
+      debugPrint('Received event WS message: $type');
+
+      if (type == 'EVENT_CREATED') {
+        if (data['event'] != null) {
+          final newEvent = Map<String, dynamic>.from(data['event']);
+          setState(() {
+            events.removeWhere((e) => e['id'] == newEvent['id']);
+            events.add(newEvent);
+          });
+        }
+      } else if (type == 'EVENT_UPDATED') {
+        if (data['event'] != null) {
+          final updatedEvent = Map<String, dynamic>.from(data['event']);
+          setState(() {
+            final idx = events.indexWhere((e) => e['id'] == updatedEvent['id']);
+            if (idx != -1) {
+              events[idx] = updatedEvent;
+            } else {
+              events.add(updatedEvent);
+            }
+          });
+        }
+      } else if (type == 'EVENT_DELETED') {
+        final String? deletedEventId = data['eventId'];
+        if (deletedEventId != null) {
+          setState(() {
+            events.removeWhere((e) => e['id'] == deletedEventId);
+          });
+        }
+      } else if (type == 'LISTENER_COUNT_CHANGED') {
+        final String? eventId = data['eventId'];
+        final int? count = data['count'];
+        if (eventId != null && count != null) {
+          setState(() {
+            final idx = events.indexWhere((e) => e['id'] == eventId);
+            if (idx != -1) {
+              final copy = Map<String, dynamic>.from(events[idx]);
+              copy['participantCount'] = count;
+              events[idx] = copy;
+            }
+          });
+        }
+      } else if (type == 'EVENT_PLAYBACK_CHANGED') {
+        final String? eventId = data['eventId'];
+        final bool? isPlaying = data['isPlaying'];
+        if (eventId != null && isPlaying != null) {
+          setState(() {
+            final idx = events.indexWhere((e) => e['id'] == eventId);
+            if (idx != -1) {
+              final copy = Map<String, dynamic>.from(events[idx]);
+              copy['playing'] = isPlaying;
+              events[idx] = copy;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error parsing event WS message: $e');
+    }
+  }
+
   void _connectEventsWebSocket(String token) {
     if (_eventsStompClient != null && _eventsStompClient!.isActive) {
       _eventsStompClient!.deactivate();
@@ -137,72 +203,27 @@ class HomeScreenState extends State<HomeScreen> {
           _eventsStompClient?.subscribe(
             destination: '/topic/events',
             callback: (frame) {
-              if (frame.body != null && mounted) {
-                try {
-                  final data = jsonDecode(frame.body!);
-                  final String type = data['type'] ?? '';
-                  debugPrint('Received global event WS message: $type');
-
-                  if (type == 'EVENT_CREATED') {
-                    if (data['event'] != null) {
-                      final newEvent = Map<String, dynamic>.from(data['event']);
-                      setState(() {
-                        events.removeWhere((e) => e['id'] == newEvent['id']);
-                        events.add(newEvent);
-                      });
-                    }
-                  } else if (type == 'EVENT_UPDATED') {
-                    if (data['event'] != null) {
-                      final updatedEvent = Map<String, dynamic>.from(data['event']);
-                      setState(() {
-                        final idx = events.indexWhere((e) => e['id'] == updatedEvent['id']);
-                        if (idx != -1) {
-                          events[idx] = updatedEvent;
-                        } else {
-                          events.add(updatedEvent);
-                        }
-                      });
-                    }
-                  } else if (type == 'EVENT_DELETED') {
-                    final String? deletedEventId = data['eventId'];
-                    if (deletedEventId != null) {
-                      setState(() {
-                        events.removeWhere((e) => e['id'] == deletedEventId);
-                      });
-                    }
-                  } else if (type == 'LISTENER_COUNT_CHANGED') {
-                    final String? eventId = data['eventId'];
-                    final int? count = data['count'];
-                    if (eventId != null && count != null) {
-                      setState(() {
-                        final idx = events.indexWhere((e) => e['id'] == eventId);
-                        if (idx != -1) {
-                          final copy = Map<String, dynamic>.from(events[idx]);
-                          copy['participantCount'] = count;
-                          events[idx] = copy;
-                        }
-                      });
-                    }
-                  } else if (type == 'EVENT_PLAYBACK_CHANGED') {
-                    final String? eventId = data['eventId'];
-                    final bool? isPlaying = data['isPlaying'];
-                    if (eventId != null && isPlaying != null) {
-                      setState(() {
-                        final idx = events.indexWhere((e) => e['id'] == eventId);
-                        if (idx != -1) {
-                          final copy = Map<String, dynamic>.from(events[idx]);
-                          copy['playing'] = isPlaying;
-                          events[idx] = copy;
-                        }
-                      });
-                    }
-                  }
-                } catch (e) {
-                  debugPrint('Error parsing global event WS message: $e');
-                }
+              if (frame.body != null) {
+                _processEventWebSocketMessage(frame.body!);
               }
             },
           );
+
+          // Subscribe to personal events topic
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final currentUserId = authProvider.currentUser?.id;
+          if (currentUserId != null) {
+            final personalTopic = '/topic/user/$currentUserId/events';
+            debugPrint('Subscribing to personal events topic: $personalTopic');
+            _eventsStompClient?.subscribe(
+              destination: personalTopic,
+              callback: (frame) {
+                if (frame.body != null) {
+                  _processEventWebSocketMessage(frame.body!);
+                }
+              },
+            );
+          }
         },
         stompConnectHeaders: {
           'Authorization': 'Bearer $token',

@@ -43,6 +43,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _isLocked = false;
   String _visibility = 'public';
   List<Map<String, dynamic>> _tracks = [];
+  List<Map<String, dynamic>> _collaborators = [];
+  bool _loadingCollaborators = false;
+  StateSetter? _sheetState;
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
@@ -132,6 +135,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         _isEventPlaying = isPlaying || _isEventPlaying || isLocallyPlayingLive;
         _isLoading = false;
       });
+
+      _loadCollaborators();
 
       if (isPlaying && playlist.isNotEmpty) {
         final firstTrack = Track.fromPlaylistTrackJson(playlist[0]);
@@ -238,6 +243,39 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  Future<void> _loadCollaborators() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.currentUser?.accessToken;
+      if (token == null) return;
+
+      if (_collaborators.isEmpty) {
+        setState(() {
+          _loadingCollaborators = true;
+        });
+      }
+
+      final list = await _eventService.getEventCollaborators(widget.eventId, token);
+
+      if (!mounted) return;
+      setState(() {
+        _collaborators = list;
+        _loadingCollaborators = false;
+      });
+
+      if (_sheetState != null) {
+        _sheetState!(() {});
+      }
+    } catch (e) {
+      debugPrint('Error loading collaborators: $e');
+      if (mounted) {
+        setState(() {
+          _loadingCollaborators = false;
+        });
+      }
+    }
+  }
+
   Future<void> _refreshRoleAndAccess() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -272,6 +310,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         _visibility = newVisibility;
         _eventDetails = details;
       });
+
+      _loadCollaborators();
     } catch (e) {
       debugPrint('Error refreshing role and access: $e');
     }
@@ -322,6 +362,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       _eventDetails!['participantCount'] = count;
                     }
                   });
+                  _loadCollaborators();
                 } catch (e) {
                   debugPrint('Error parsing listeners count: $e');
                 }
@@ -341,6 +382,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       type == 'ROLE_CHANGE' ||
                       type == 'EVENT_UPDATED') {
                     _refreshRoleAndAccess();
+                    _loadCollaborators();
                   } else if (type == 'EVENT_STARTED') {
                     setState(() {
                       _isEventPlaying = true;
@@ -528,120 +570,108 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final token = authProvider.currentUser?.accessToken;
     if (token == null) return;
 
+    _loadCollaborators();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 20),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            _sheetState = setSheetState;
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Listeners in the room',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 20),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[600],
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _eventService.getEventCollaborators(
-                    widget.eventId,
-                    token,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Listeners in the room',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.green),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return const Center(
-                        child: Text(
-                          'Error loading listeners',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      );
-                    }
-                    final listeners = snapshot.data ?? [];
-                    if (listeners.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'No listeners yet.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      );
-                    }
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: _loadingCollaborators && _collaborators.isEmpty
+                        ? const Center(
+                            child: CircularProgressIndicator(color: Colors.green),
+                          )
+                        : _collaborators.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No listeners yet.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _collaborators.length,
+                                itemBuilder: (context, index) {
+                                  final listener = _collaborators[index];
+                                  final name = listener['displayName'] ?? 'Unknown';
+                                  final role = listener['permission'] ?? 'viewer';
+                                  final avatarUrl = listener['avatarUrl'] ?? '';
 
-                    return ListView.builder(
-                      itemCount: listeners.length,
-                      itemBuilder: (context, index) {
-                        final listener = listeners[index];
-                        final name = listener['displayName'] ?? 'Unknown';
-                        final role = listener['permission'] ?? 'viewer';
-                        final avatarUrl = listener['avatarUrl'] ?? '';
-
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.grey[800],
-                            backgroundImage: avatarUrl.isNotEmpty
-                                ? NetworkImage(avatarUrl)
-                                : null,
-                            child: avatarUrl.isEmpty
-                                ? const Icon(Icons.person, color: Colors.grey)
-                                : null,
-                          ),
-                          title: Text(
-                            name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            role.toUpperCase(),
-                            style: TextStyle(
-                              color: role == 'owner'
-                                  ? Colors.greenAccent
-                                  : (role == 'editor'
-                                        ? Colors.blueAccent
-                                        : Colors.grey[400]),
-                              fontSize: 12,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                                  return ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.grey[800],
+                                      backgroundImage: avatarUrl.isNotEmpty
+                                          ? NetworkImage(avatarUrl)
+                                          : null,
+                                      child: avatarUrl.isEmpty
+                                          ? const Icon(Icons.person, color: Colors.grey)
+                                          : null,
+                                    ),
+                                    title: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      role.toUpperCase(),
+                                      style: TextStyle(
+                                        color: role == 'owner'
+                                            ? Colors.greenAccent
+                                            : (role == 'editor'
+                                                ? Colors.blueAccent
+                                                : Colors.grey[400]),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
-      },
-    );
+    }).whenComplete(() {
+      _sheetState = null;
+    });
   }
 
   void _showAddTrackSheet() {
