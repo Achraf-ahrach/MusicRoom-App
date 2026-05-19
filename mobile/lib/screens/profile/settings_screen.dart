@@ -430,6 +430,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Center(
                 child: TextButton(
                   onPressed: () {
+                    // Cleanly pop all imperatively pushed screens back to the root first
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                     Provider.of<AuthProvider>(context, listen: false).logout();
                   },
                   child: const Text(

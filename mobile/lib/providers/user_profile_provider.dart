@@ -38,7 +38,7 @@ class UserProfileProvider with ChangeNotifier {
     try {
       return await action(currentToken);
     } catch (e) {
-      if (e.toString().contains('401') || e.toString().contains('403')) {
+      if (e.toString().contains('401') || e.toString().contains('403') || e.toString().contains('404')) {
         final success = await auth.refreshTokens();
         if (success) {
           currentToken = auth.currentUser?.accessToken ?? '';
@@ -72,6 +72,17 @@ class UserProfileProvider with ChangeNotifier {
       });
     } catch (e) {
       _errorMessage = e.toString();
+      debugPrint('fetchProfile failed: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('401') ||
+          errStr.contains('403') ||
+          errStr.contains('404') ||
+          errStr.contains('unauthorized') ||
+          errStr.contains('unauthenticated') ||
+          errStr.contains('not found')) {
+        debugPrint('Authentication/Profile invalid. Force logging out.');
+        _authProvider?.logout();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -39,7 +39,7 @@ class PlaylistProvider with ChangeNotifier {
     try {
       return await action(token);
     } catch (e) {
-      final shouldRetry = e.toString().contains('401') || e.toString().contains('403');
+      final shouldRetry = e.toString().contains('401') || e.toString().contains('403') || e.toString().contains('404');
       if (shouldRetry && auth != null) {
         final refreshed = await auth.refreshTokens();
         if (refreshed) {
@@ -85,6 +85,14 @@ class PlaylistProvider with ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       debugPrint('Failed to load playlists: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('401') ||
+          errStr.contains('403') ||
+          errStr.contains('404') ||
+          errStr.contains('unauthorized') ||
+          errStr.contains('unauthenticated')) {
+        _authProvider?.logout();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
