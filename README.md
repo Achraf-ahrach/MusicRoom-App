@@ -273,10 +273,11 @@ graph TD
 
 This application is fully open source. Feel free to open issues or submit Pull Requests for any feature upgrades or bug resolutions! 
 
-*   Developed by **Achraf Ahrach** and contributors.
+*   Developed by:
+    *   **Achraf Ahrach**
+    *   **Anas Bouzanbil**
+    *   **Aboubaker Fanti**
+    *   **Hamad Oubeid**
 *   Special thanks to the **Audius Developer Platform** for open-access music streaming and catalog nodes.
 
 ---
-
-## 📄 License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
