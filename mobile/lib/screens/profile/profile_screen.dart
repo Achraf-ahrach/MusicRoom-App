@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../providers/playlist_provider.dart';
 import 'edit_profile_screen.dart';
+import 'settings_screen.dart';
 import 'all_playlists_screen.dart';
 import '../playlist_detail_screen.dart';
 import 'followers_following_screen.dart';
@@ -52,6 +53,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
@@ -219,6 +231,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+
+                  if (profile != null &&
+                      (profile.publicInfo['bio'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Text(
+                        profile.publicInfo['bio'].toString(),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontSize: 14,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 24),
 

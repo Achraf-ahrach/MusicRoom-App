@@ -103,6 +103,7 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
   Widget build(BuildContext context) {
     final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
     final isOwnProfile = currentUserId == widget.userId;
+    final visibleInfoRows = _buildVisibleInfoRows();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -286,35 +287,10 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                     ),
                   ),
 
-                // ── Public Info ───────────────────────────────────────────────
-                if (_hasPublicInfo())
+                // ── Unified Profile Info ──────────────────────────────────────
+                if (visibleInfoRows.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: _buildInfoCard(
-                      icon: Icons.public,
-                      title: 'About',
-                      pillLabel: 'Public',
-                      pillColor: const Color(0xFF1DB954),
-                      rows: [
-                        if ((_profile?.publicInfo['bio'] ?? '').toString().isNotEmpty)
-                          _infoRow(Icons.info_outline, 'Bio', _profile!.publicInfo['bio'].toString()),
-                        if ((_profile?.publicInfo['location'] ?? '').toString().isNotEmpty)
-                          _infoRow(Icons.location_on_outlined, 'Location', _profile!.publicInfo['location'].toString()),
-                        if ((_profile?.publicInfo['website'] ?? '').toString().isNotEmpty)
-                          _infoRow(Icons.link, 'Website', _profile!.publicInfo['website'].toString()),
-                      ],
-                    ),
-                  ),
-
-                // ── Friends Info (only if backend returned it = we are friends) ─
-                if (_hasFriendsInfo())
-                  SliverToBoxAdapter(
-                    child: _buildInfoCard(
-                      icon: Icons.group,
-                      title: 'Friends info',
-                      pillLabel: 'Friends only',
-                      pillColor: const Color(0xFFFFC107),
-                      rows: _buildFriendsInfoRows(),
-                    ),
+                    child: _buildProfileInfoPanel(rows: visibleInfoRows),
                   ),
 
                 // ── Section Header ────────────────────────────────────────────
@@ -362,38 +338,26 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  List<Widget> _buildFriendsInfoRows() {
+  List<Widget> _buildVisibleInfoRows() {
+    final pub = _profile?.publicInfo ?? {};
     final fri = _profile?.friendsInfo ?? {};
     return [
+      if ((pub['bio'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.info_outline, 'Bio', pub['bio'].toString()),
+      if ((pub['location'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.location_on_outlined, 'Location', pub['location'].toString()),
+      if ((pub['website'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.link, 'Website', pub['website'].toString()),
       if ((fri['phone'] ?? '').toString().isNotEmpty)
-        _infoRow(Icons.phone_outlined, 'Phone', fri['phone'].toString()),
+        _profileInfoRow(Icons.phone_outlined, 'Phone', fri['phone'].toString()),
       if ((fri['birthday'] ?? '').toString().isNotEmpty)
-        _infoRow(Icons.cake_outlined, 'Birthday', fri['birthday'].toString()),
+        _profileInfoRow(Icons.cake_outlined, 'Birthday', fri['birthday'].toString()),
       if ((fri['instagram'] ?? '').toString().isNotEmpty)
-        _infoRow(Icons.alternate_email, 'Instagram', fri['instagram'].toString()),
+        _profileInfoRow(Icons.alternate_email, 'Instagram', fri['instagram'].toString()),
     ];
   }
 
-  bool _hasPublicInfo() {
-    final pub = _profile?.publicInfo ?? {};
-    return ['bio', 'location', 'website']
-        .any((k) => (pub[k] ?? '').toString().isNotEmpty);
-  }
-
-  bool _hasFriendsInfo() {
-    // Backend returns null for friendsInfo when requester is not a friend.
-    // A non-null but possibly empty map means we ARE friends.
-    final fri = _profile?.friendsInfo;
-    if (fri == null) return false;
-    return ['phone', 'birthday', 'instagram']
-        .any((k) => (fri[k] ?? '').toString().isNotEmpty);
-  }
-
-  Widget _buildInfoCard({
-    required IconData icon,
-    required String title,
-    required String pillLabel,
-    required Color pillColor,
+  Widget _buildProfileInfoPanel({
     required List<Widget> rows,
   }) {
     if (rows.isEmpty) return const SizedBox.shrink();
@@ -404,32 +368,14 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: pillColor, size: 16),
+              Icon(Icons.person_outline, color: AppTheme.accent, size: 18),
               const SizedBox(width: 6),
-              Text(
-                title,
+              const Text(
+                'Profile details',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: pillColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: pillColor.withValues(alpha: 0.4)),
-                ),
-                child: Text(
-                  pillLabel,
-                  style: TextStyle(
-                    color: pillColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
                 ),
               ),
             ],
@@ -437,9 +383,20 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white10),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF232323), Color(0xFF1A1A1A)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: Column(children: rows),
           ),
@@ -448,36 +405,47 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _profileInfoRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white38, size: 18),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white70, size: 16),
+          ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

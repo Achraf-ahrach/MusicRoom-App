@@ -281,8 +281,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildPrivacySection({
     required IconData icon,
     required String title,
-    required String pillLabel,
-    required Color pillColor,
+    required String visibilityNote,
+    required Color accentColor,
     required List<Widget> fields,
   }) {
     return Column(
@@ -292,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
           child: Row(
             children: [
-              Icon(icon, color: pillColor, size: 18),
+              Icon(icon, color: accentColor, size: 18),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -302,25 +302,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: pillColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: pillColor.withOpacity(0.4)),
-                ),
-                child: Text(
-                  pillLabel,
-                  style: TextStyle(
-                    color: pillColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+          child: Text(
+            visibilityNote,
+            style: TextStyle(
+              color: Colors.grey.shade400,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         _card(
@@ -459,9 +452,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _buildPrivacySection(
                 icon: Icons.public,
-                title: 'Public info',
-                pillLabel: 'Everyone',
-                pillColor: const Color(0xFF1DB954),
+                title: 'Profile details',
+                visibilityNote: 'This data will be shown to everyone.',
+                accentColor: const Color(0xFF1DB954),
                 fields: [
                   _infoField(label: 'Bio', controller: _bioController, hint: 'Tell the world about yourself…'),
                   _infoField(label: 'Location', controller: _locationController, hint: 'City, Country'),
@@ -470,9 +463,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _buildPrivacySection(
                 icon: Icons.group,
-                title: 'Friends info',
-                pillLabel: 'Friends only',
-                pillColor: const Color(0xFFFFC107),
+                title: 'Close friends details',
+                visibilityNote: 'This data is visible only when you follow each other.',
+                accentColor: const Color(0xFFFFC107),
                 fields: [
                   _infoField(label: 'Phone', controller: _phoneController, hint: '+1 234 567 890', keyboardType: TextInputType.phone),
                   _infoField(label: 'Birthday', controller: _birthdayController, hint: 'YYYY-MM-DD'),
@@ -481,9 +474,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _buildPrivacySection(
                 icon: Icons.lock,
-                title: 'Private info',
-                pillLabel: 'Only me',
-                pillColor: const Color(0xFF9C27B0),
+                title: 'Private details',
+                visibilityNote: 'Only you can view this data.',
+                accentColor: const Color(0xFF9C27B0),
                 fields: [
                   _infoField(label: 'Real name', controller: _realNameController, hint: 'Your legal name'),
                   _infoField(label: 'Notes', controller: _notesController, hint: 'Personal notes…'),
@@ -498,114 +491,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     runSpacing: 10,
                     children: _genreOptions.map(_genreChip).toList(),
                   ),
-                ),
-              ),
-              _sectionTitle('Listening'),
-              _card(
-                child: Column(
-                  children: [
-                    _settingTile(
-                      icon: Icons.near_me,
-                      title: 'Search distance',
-                      subtitle: '${_searchDistance.round()} km',
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: const Color(0xFF1DB954),
-                          inactiveTrackColor: Colors.white12,
-                          thumbColor: const Color(0xFF1DB954),
-                        ),
-                        child: Slider(
-                          value: _searchDistance,
-                          min: 10,
-                          max: 250,
-                          divisions: 24,
-                          onChanged: (value) =>
-                              setState(() => _searchDistance = value),
-                        ),
-                      ),
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _toggleTile(
-                      icon: Icons.data_usage,
-                      title: 'Data saver',
-                      subtitle: 'Use less data for streaming and previews',
-                      value: _dataSaver,
-                      onChanged: (value) => _dataSaver = value,
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _toggleTile(
-                      icon: Icons.download,
-                      title: 'Offline mode',
-                      subtitle: 'Only play downloaded music when offline',
-                      value: _offlineMode,
-                      onChanged: (value) => _offlineMode = value,
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _toggleTile(
-                      icon: Icons.explicit,
-                      title: 'Explicit content',
-                      subtitle: 'Allow explicit songs in your recommendations',
-                      value: _explicitContent,
-                      onChanged: (value) => _explicitContent = value,
-                    ),
-                  ],
-                ),
-              ),
-              _sectionTitle('Privacy & notifications'),
-              _card(
-                child: Column(
-                  children: [
-                    _toggleTile(
-                      icon: Icons.visibility_off,
-                      title: 'Private session',
-                      subtitle:
-                          'Keep listening activity hidden for this session',
-                      value: _privateSession,
-                      onChanged: (value) => _privateSession = value,
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _toggleTile(
-                      icon: Icons.notifications,
-                      title: 'Push notifications',
-                      subtitle:
-                          'Get updates about playlists, follows, and events',
-                      value: _notificationsEnabled,
-                      onChanged: (value) => _notificationsEnabled = value,
-                    ),
-                  ],
-                ),
-              ),
-              _sectionTitle('About'),
-              _card(
-                child: Column(
-                  children: [
-                    _settingTile(
-                      icon: Icons.info_outline,
-                      title: 'Version',
-                      subtitle: '1.0.0',
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _settingTile(
-                      icon: Icons.shield_outlined,
-                      title: 'Privacy policy',
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                      ),
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _settingTile(
-                      icon: Icons.description_outlined,
-                      title: 'Terms and conditions',
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ],
                 ),
               ),
               const SizedBox(height: 24),
