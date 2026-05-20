@@ -3,9 +3,9 @@ services:
     image: postgres:15
     container_name: musicroom-db
     environment:
-      POSTGRES_DB: musicroom
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${APP_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
