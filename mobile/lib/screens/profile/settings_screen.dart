@@ -35,10 +35,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   Set<String> _selectedGenres = {'Pop', 'Rock'};
 
+  // Public info
+  final _bioController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _websiteController = TextEditingController();
+  // Friends info
+  final _phoneController = TextEditingController();
+  final _birthdayController = TextEditingController();
+  final _instagramController = TextEditingController();
+  // Private info
+  final _notesController = TextEditingController();
+  final _realNameController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadFromProfile());
+  }
+
+  @override
+  void dispose() {
+    _bioController.dispose();
+    _locationController.dispose();
+    _websiteController.dispose();
+    _phoneController.dispose();
+    _birthdayController.dispose();
+    _instagramController.dispose();
+    _notesController.dispose();
+    _realNameController.dispose();
+    super.dispose();
   }
 
   void _loadFromProfile() {
@@ -60,6 +85,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (genres is List) {
         _selectedGenres = genres.map((e) => e.toString()).toSet();
       }
+
+      // Public info
+      final pub = profile?.publicInfo ?? {};
+      _bioController.text = pub['bio']?.toString() ?? '';
+      _locationController.text = pub['location']?.toString() ?? '';
+      _websiteController.text = pub['website']?.toString() ?? '';
+      // Friends info
+      final fri = profile?.friendsInfo ?? {};
+      _phoneController.text = fri['phone']?.toString() ?? '';
+      _birthdayController.text = fri['birthday']?.toString() ?? '';
+      _instagramController.text = fri['instagram']?.toString() ?? '';
+      // Private info
+      final prv = profile?.privateInfo ?? {};
+      _notesController.text = prv['notes']?.toString() ?? '';
+      _realNameController.text = prv['real_name']?.toString() ?? '';
     });
   }
 
@@ -67,12 +107,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final authProvider = context.read<AuthProvider>();
     final profileProvider = context.read<UserProfileProvider>();
     final token = authProvider.currentUser?.accessToken;
+    if (token == null) return;
 
-    if (token == null) {
-      return;
-    }
+    // Save profile info tiers
+    final infoSuccess = await profileProvider.updateProfile(
+      token,
+      profileProvider.profile?.displayName ?? '',
+      profileProvider.profile?.avatarUrl,
+      publicInfo: {
+        'bio': _bioController.text.trim(),
+        'location': _locationController.text.trim(),
+        'website': _websiteController.text.trim(),
+      },
+      friendsInfo: {
+        'phone': _phoneController.text.trim(),
+        'birthday': _birthdayController.text.trim(),
+        'instagram': _instagramController.text.trim(),
+      },
+      privateInfo: {
+        'notes': _notesController.text.trim(),
+        'real_name': _realNameController.text.trim(),
+      },
+    );
 
-    final success = await profileProvider.updatePreferences(token, {
+    // Save music preferences
+    final prefsSuccess = await profileProvider.updatePreferences(token, {
       'discovery_mode': _activeDiscovery ? 'active' : 'passive',
       'max_distance_km': _searchDistance.round(),
       'favorite_genres': _selectedGenres.toList()..sort(),
@@ -83,19 +142,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'notifications_enabled': _notificationsEnabled,
     });
 
-    if (success) {
+    if (prefsSuccess) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('offline_mode', _offlineMode);
     }
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
+    final allOk = infoSuccess && prefsSuccess;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success ? 'Settings saved' : 'Could not save settings'),
-        backgroundColor: success ? Colors.green : Colors.red,
+        content: Text(allOk ? 'Settings saved' : 'Could not save settings'),
+        backgroundColor: allOk ? Colors.green : Colors.red,
       ),
     );
   }
@@ -220,6 +278,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildPrivacySection({
+    required IconData icon,
+    required String title,
+    required String pillLabel,
+    required Color pillColor,
+    required List<Widget> fields,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+          child: Row(
+            children: [
+              Icon(icon, color: pillColor, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: pillColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: pillColor.withOpacity(0.4)),
+                ),
+                child: Text(
+                  pillLabel,
+                  style: TextStyle(
+                    color: pillColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        _card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 2),
+            child: Column(children: fields),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _infoField({
+    required String label,
+    required TextEditingController controller,
+    String? hint,
+    TextInputType? keyboardType,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey.shade400,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.06),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white10),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white10),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF1DB954)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileProvider = context.watch<UserProfileProvider>();
@@ -293,6 +456,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+              ),
+              _buildPrivacySection(
+                icon: Icons.public,
+                title: 'Public info',
+                pillLabel: 'Everyone',
+                pillColor: const Color(0xFF1DB954),
+                fields: [
+                  _infoField(label: 'Bio', controller: _bioController, hint: 'Tell the world about yourself…'),
+                  _infoField(label: 'Location', controller: _locationController, hint: 'City, Country'),
+                  _infoField(label: 'Website', controller: _websiteController, hint: 'https://…', keyboardType: TextInputType.url),
+                ],
+              ),
+              _buildPrivacySection(
+                icon: Icons.group,
+                title: 'Friends info',
+                pillLabel: 'Friends only',
+                pillColor: const Color(0xFFFFC107),
+                fields: [
+                  _infoField(label: 'Phone', controller: _phoneController, hint: '+1 234 567 890', keyboardType: TextInputType.phone),
+                  _infoField(label: 'Birthday', controller: _birthdayController, hint: 'YYYY-MM-DD'),
+                  _infoField(label: 'Instagram', controller: _instagramController, hint: '@username'),
+                ],
+              ),
+              _buildPrivacySection(
+                icon: Icons.lock,
+                title: 'Private info',
+                pillLabel: 'Only me',
+                pillColor: const Color(0xFF9C27B0),
+                fields: [
+                  _infoField(label: 'Real name', controller: _realNameController, hint: 'Your legal name'),
+                  _infoField(label: 'Notes', controller: _notesController, hint: 'Personal notes…'),
+                ],
               ),
               _sectionTitle('Favorite genres'),
               _card(
