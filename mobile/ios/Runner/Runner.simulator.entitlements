@@ -4,8 +4,8 @@
 <dict>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.example.musicroom</string>
-		<string>$(AppIdentifierPrefix)com.google.GIDSignIn</string>
+		<string>com.example.musicroom</string>
+		<string>com.google.GIDSignIn</string>
 	</array>
 </dict>
 </plist>
