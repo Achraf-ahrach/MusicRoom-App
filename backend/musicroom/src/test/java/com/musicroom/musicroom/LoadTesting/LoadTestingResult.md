@@ -1,4 +1,15 @@
-By The Way we gonna use SIEGE for this test and we gonna talk about each request it's input and output, of course also we gonna set the server that we use on this tests:
+For the load testing phase, we used Siege as the benchmarking tool in order to evaluate the performance, stability, and scalability of our backend services under concurrent traffic.
+
+The objective of these tests is to measure how many simultaneous users the API and backend services can support while maintaining acceptable response times and system stability.
+
+For each tested endpoint, we will present:
+
+* the endpoint and HTTP method,
+* the request input and expected output,
+* the load testing configuration used,
+* and the performance results obtained during the stress tests.
+
+We also specify the hardware and software characteristics of the server environment used during testing, including CPU, RAM, operating system, backend framework, database system, and deployment environment.
 
 
 # Device Server Characteristics
