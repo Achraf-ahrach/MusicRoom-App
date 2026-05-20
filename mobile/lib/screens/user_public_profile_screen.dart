@@ -103,6 +103,7 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
   Widget build(BuildContext context) {
     final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
     final isOwnProfile = currentUserId == widget.userId;
+    final visibleInfoRows = _buildVisibleInfoRows();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -139,22 +140,30 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                             // Avatar
                             CircleAvatar(
                               radius: 46,
-                              backgroundImage: _profile?.avatarUrl != null && _profile!.avatarUrl!.isNotEmpty && !_profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
+                              backgroundImage: _profile?.avatarUrl != null &&
+                                      (_profile!.avatarUrl!.isNotEmpty) &&
+                                      !_profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
                                   ? NetworkImage(_profile!.avatarUrl!)
                                   : null,
                               backgroundColor: AppTheme.surface,
-                              child: _profile?.avatarUrl == null || _profile!.avatarUrl!.isEmpty || _profile!.avatarUrl!.contains('photo-1535713875002-d1d0cf377fde')
-                                  ? Text(
-                                      widget.displayName.isNotEmpty
-                                          ? widget.displayName[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 36,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
+                              child: (() {
+                                final av = _profile?.avatarUrl;
+                                final showDefault = av == null ||
+                                    av.isEmpty ||
+                                    av.contains('photo-1535713875002-d1d0cf377fde');
+                                return showDefault
+                                    ? Text(
+                                        widget.displayName.isNotEmpty
+                                            ? widget.displayName[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 36,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null;
+                              })(),
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -278,6 +287,12 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                     ),
                   ),
 
+                // ── Unified Profile Info ──────────────────────────────────────
+                if (visibleInfoRows.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _buildProfileInfoPanel(rows: visibleInfoRows),
+                  ),
+
                 // ── Section Header ────────────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
@@ -318,6 +333,122 @@ class _UserPublicProfileScreenState extends State<UserPublicProfileScreen> {
                 const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ),
+    );
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  List<Widget> _buildVisibleInfoRows() {
+    final pub = _profile?.publicInfo ?? {};
+    final fri = _profile?.friendsInfo ?? {};
+    return [
+      if ((pub['bio'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.info_outline, 'Bio', pub['bio'].toString()),
+      if ((pub['location'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.location_on_outlined, 'Location', pub['location'].toString()),
+      if ((pub['website'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.link, 'Website', pub['website'].toString()),
+      if ((fri['phone'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.phone_outlined, 'Phone', fri['phone'].toString()),
+      if ((fri['birthday'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.cake_outlined, 'Birthday', fri['birthday'].toString()),
+      if ((fri['instagram'] ?? '').toString().isNotEmpty)
+        _profileInfoRow(Icons.alternate_email, 'Instagram', fri['instagram'].toString()),
+    ];
+  }
+
+  Widget _buildProfileInfoPanel({
+    required List<Widget> rows,
+  }) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person_outline, color: AppTheme.accent, size: 18),
+              const SizedBox(width: 6),
+              const Text(
+                'Profile details',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF232323), Color(0xFF1A1A1A)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(children: rows),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white70, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

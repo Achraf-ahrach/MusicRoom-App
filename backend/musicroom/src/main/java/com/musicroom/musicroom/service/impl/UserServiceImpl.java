@@ -7,7 +7,7 @@ import com.musicroom.musicroom.entity.User;
 import com.musicroom.musicroom.exception.ResourceNotFoundException;
 import com.musicroom.musicroom.exception.BadRequestException;
 import java.io.IOException;
-import com.musicroom.musicroom.repository.FriendshipRepository;
+import com.musicroom.musicroom.repository.UserFollowRepository;
 import com.musicroom.musicroom.repository.UserRepository;
 import com.musicroom.musicroom.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepo;
-    private final FriendshipRepository friendshipRepo;
+    private final UserFollowRepository userFollowRepo;
 
     @Override
     public UserProfileDto getMyProfile(UUID userId) {
@@ -49,16 +49,11 @@ public class UserServiceImpl implements UserService {
         User target = userRepo.findById(targetId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        // Friends are defined as mutual follow:
+        // requester follows target AND target follows requester.
         boolean areFriends =
-                friendshipRepo
-                        .findByRequesterIdAndStatus(requesterId, "accepted")
-                        .stream()
-                        .anyMatch(f -> f.getAddressee().getId().equals(targetId))
-                ||
-                friendshipRepo
-                        .findByAddresseeIdAndStatus(requesterId, "accepted")
-                        .stream()
-                        .anyMatch(f -> f.getRequester().getId().equals(targetId));
+                userFollowRepo.existsByFollowerIdAndFollowingId(requesterId, targetId)
+                && userFollowRepo.existsByFollowerIdAndFollowingId(targetId, requesterId);
 
         return UserProfileDto.builder()
                 .id(target.getId())

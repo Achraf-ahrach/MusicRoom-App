@@ -74,39 +74,45 @@ class _MainScreenState extends State<MainScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.search_outlined),
-            activeIcon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.library_music_outlined),
-            activeIcon: Icon(Icons.library_music),
-            label: 'Library',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              _isCreateMenuOpen ? Icons.close : Icons.add_box_outlined,
-            ),
-            activeIcon: Icon(_isCreateMenuOpen ? Icons.close : Icons.add_box),
-            label: _isCreateMenuOpen ? 'Close' : 'Create',
-          ),
-        ],
+      bottomNavigationBar: Selector<AudioProvider, bool>(
+        selector: (context, provider) => provider.isPlayerMaximized,
+        builder: (context, isMaximized, child) {
+          if (isMaximized) return const SizedBox.shrink();
+          return BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.black,
+            selectedItemColor: Colors.green,
+            unselectedItemColor: Colors.grey,
+            showSelectedLabels: true,
+            showUnselectedLabels: true,
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.search_outlined),
+                activeIcon: Icon(Icons.search),
+                label: 'Search',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.library_music_outlined),
+                activeIcon: Icon(Icons.library_music),
+                label: 'Library',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(
+                  _isCreateMenuOpen ? Icons.close : Icons.add_box_outlined,
+                ),
+                activeIcon: Icon(_isCreateMenuOpen ? Icons.close : Icons.add_box),
+                label: _isCreateMenuOpen ? 'Close' : 'Create',
+              ),
+            ],
+          );
+        },
       ),
     );
   }
