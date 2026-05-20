@@ -24,8 +24,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'Classical',
   ];
 
-  final List<String> _modeOptions = const ['active', 'passive'];
-
   bool _activeDiscovery = true;
   double _searchDistance = 50;
   bool _dataSaver = false;
@@ -434,18 +432,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         );
                       },
-                    ),
-                    const Divider(height: 1, color: Colors.white10),
-                    _settingTile(
-                      icon: Icons.auto_awesome,
-                      title: 'Discovery mode',
-                      subtitle: _activeDiscovery ? 'Active' : 'Passive',
-                      trailing: Switch.adaptive(
-                        value: _activeDiscovery,
-                        onChanged: (value) =>
-                            setState(() => _activeDiscovery = value),
-                        activeColor: const Color(0xFF1DB954),
-                      ),
                     ),
                   ],
                 ),
