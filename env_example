@@ -18,9 +18,9 @@ JWT_EXPIRATION_REFRESH=604800000
 # ========================================
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USERNAME=aboubakerfanti1@gmail.com
-MAIL_PASSWORD=flal huwm skdv thme
-MAIL_FROM=aboubakerfanti1@gmail.com
+MAIL_USERNAME=name-or-mail
+MAIL_PASSWORD=mail-app-password
+MAIL_FROM=your-mail
 MAIL_FROM_NAME=Music Room
 
 # ========================================
